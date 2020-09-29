@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+    apidev:
+        build:
+            context: .
+            dockerfile: GODockerfile
+        container_name: recog-api
+        user: "vscode"
+        working_dir: /workspace
+        command: /bin/sh -c "while sleep 1000; do :; done"
+        volumes:
+            - vscode-server:/home/vscode/.vscode-server
+            - vscode-server-insiders:/home/vscode/.vscode-server-insiders
+            - ../:/workspace
+        ports:
+            - 18080:18080
+        networks:
+            - recog-net
+
+volumes:
+    vscode-server:
+    vscode-server-insiders:
+        driver: local
+
+networks:
+    recog-net:
+        driver: bridge

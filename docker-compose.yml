@@ -1,0 +1,43 @@
+version: "3.8"
+services:
+    app:
+        build:
+            context: ./recogapp
+            dockerfile: ./Dockerfile
+        container_name: recog-app
+        user: "harrison"
+        working_dir: /workspace
+        command: /bin/sh -c "while sleep 1000; do :; done"
+        volumes:
+            - vscode-server:/home/harrison/.vscode-server
+            - vscode-server-insiders:/home/harrison/.vscode-server-insiders
+            - .:/workspace
+        ports:
+            - 18080:18080
+        networks:
+            - recog-net
+    learnapp:
+        build:
+            context: ./learnapp
+            dockerfile: ./Dockerfile
+        container_name: recog-learnapp
+        user: "harrison"
+        working_dir: /workspace
+        command: /bin/sh -c "while sleep 1000; do :; done"
+        volumes:
+            - vscode-server:/home/harrison/.vscode-server
+            - vscode-server-insiders:/home/harrison/.vscode-server-insiders
+            - .:/workspace
+        ports:
+            - 18090:18090
+        networks:
+            - recog-net
+
+volumes:
+    vscode-server:
+    vscode-server-insiders:
+        driver: local
+
+networks:
+    recog-net:
+        driver: bridge

@@ -1,4 +1,4 @@
-module github.com/harrison-roh/image-recognition-with-transfer-learning
+module github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp
 
 go 1.14
 

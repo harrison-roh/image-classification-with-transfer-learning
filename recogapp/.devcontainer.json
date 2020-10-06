@@ -2,27 +2,26 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.128.0/containers/docker-from-docker-compose
 // If you want to run as a non-root user in the container, see .devcontainer/docker-compose.yml.
 {
-	"name": "recog",
-	"dockerComposeFile": "./docker-compose.yml",
-	"service": "apidev",
+	"name": "recog api",
+	"dockerComposeFile": "../docker-compose.yml",
+	"service": "app",
 
-	"workspaceFolder": "/workspace",
+	"workspaceFolder": "/workspace/recogapp",
 	"runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
 	"settings": {
 		"terminal.integrated.shell.linux": "/bin/bash"
 	},
+	"shutdownAction": "none",
 
 	"updateRemoteUserUID": false,
-	"remoteUser": "vscode",
+	"remoteUser": "harrison",
 
 	"extensions": [
 		"golang.go"
 	],
 
 	"mounts": [
-		"source=vscode-server,target=/home/vscode/.vscode-server,type=volume",
-		"source=vscode-server-insiders,target=/home/vscode/.vscode-server-insiders,type=volume"
+		"source=vscode-server,target=/home/harrison/.vscode-server,type=volume",
+		"source=vscode-server-insiders,target=/home/harrison/.vscode-server-insiders,type=volume"
 	],
-
-	"postCreateCommand": "curl https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz | tar zx -C /recog/opt"
 }

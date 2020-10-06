@@ -1,6 +1,6 @@
 FROM tensorflow/tensorflow
 
-ARG USERNAME=vscode
+ARG USERNAME=harrison
 # For Linux local machine
 #ARG USER_UID=1000
 # For MacOS local machine
@@ -43,5 +43,5 @@ RUN curl https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz | tar zx -C ${OPT_
 
 RUN chown -R ${USERNAME} ${OPT_DIR}
 
-ENV GOPATH /workspace/.go
-ENV PATH /workspace/.go/bin:${OPT_DIR}/go/bin:$PATH
+ENV GOPATH /workspace/recogapp/.go
+ENV PATH /workspace/recogapp/.go/bin:${OPT_DIR}/go/bin:$PATH

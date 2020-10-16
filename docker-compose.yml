@@ -8,12 +8,15 @@ services:
         user: "harrison"
         working_dir: /workspace
         command: /bin/sh -c "while sleep 1000; do :; done"
+        depends_on:
+            - db
         volumes:
+            - imagedata:/recog/images
             - vscode-server:/home/harrison/.vscode-server
             - vscode-server-insiders:/home/harrison/.vscode-server-insiders
             - .:/workspace
         ports:
-            - 18080:18080
+            - "18080:18080"
         networks:
             - recog-net
     learnapp:
@@ -24,12 +27,33 @@ services:
         user: "harrison"
         working_dir: /workspace
         command: /bin/sh -c "while sleep 1000; do :; done"
+        depends_on:
+            - db
         volumes:
+            - imagedata:/recog/images
             - vscode-server:/home/harrison/.vscode-server
             - vscode-server-insiders:/home/harrison/.vscode-server-insiders
             - .:/workspace
         ports:
-            - 18090:18090
+            - "18090:18090"
+        networks:
+            - recog-net
+    db:
+        image: mysql
+        container_name: recog-db
+        command:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+            - --lower_case_table_names=0
+        environment:
+            MYSQL_ROOT_PASSWORD: "password0"
+            MYSQL_DATABASE: "recog_image_db"
+            MYSQL_USER: "user1"
+            MYSQL_PASSWORD: "password1"
+        volumes:
+            - dbdata:/var/lib/mysql
+        ports:
+            - "18100:3306"
         networks:
             - recog-net
 
@@ -37,6 +61,8 @@ volumes:
     vscode-server:
     vscode-server-insiders:
         driver: local
+    dbdata:
+    imagedata:
 
 networks:
     recog-net:

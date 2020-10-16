@@ -8,24 +8,26 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/data"
 	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/inference"
 )
 
 // APIs api 핸들러
 type APIs struct {
 	I *inference.Inference
+	M *data.Manager
 }
 
-// ListInfer 추론 모델 목록 반환
-func (a *APIs) ListInfer(c *gin.Context) {
+// ListInference 추론 모델 목록 반환
+func (a *APIs) ListInference(c *gin.Context) {
 	models := a.I.GetModels()
 	c.JSON(http.StatusOK, gin.H{
 		"models": models,
 	})
 }
 
-// ShowInfer 추론 모델 정보 반환
-func (a *APIs) ShowInfer(c *gin.Context) {
+// ShowInference 추론 모델 정보 반환
+func (a *APIs) ShowInference(c *gin.Context) {
 	model := c.Param("model")
 
 	if info := a.I.GetModel(model); info != nil {
@@ -76,6 +78,15 @@ func (a *APIs) doInfer(c *gin.Context, model string) {
 		})
 	} else {
 		Error(c, http.StatusBadRequest, err)
+	}
+}
+
+// UploadImage image를 업로드
+func (a *APIs) UploadImage(c *gin.Context) {
+	if item, err := a.M.Save(c); err != nil {
+		Error(c, http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, item)
 	}
 }
 

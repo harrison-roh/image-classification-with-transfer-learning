@@ -8,6 +8,7 @@ ARG USER_UID=501
 ARG USER_GID=${USER_UID}
 
 ARG OPT_DIR=/recog/opt
+ARG IMAGEDATA_DIR=/recog/images
 
 ENV TZ=Asia/Seoul
 RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
@@ -15,6 +16,7 @@ RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezo
 RUN apt-get update && apt-get install -y \
     g++ gcc libc6-dev make pkg-config \
     tree git sudo curl wget \
+    python3-venv python3-matplotlib \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.
@@ -31,5 +33,7 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} \
         /home/${USERNAME}/.vscode-server-insiders
 
 RUN [ -d "${OPT_DIR}" ] || mkdir -p ${OPT_DIR}
+RUN [ -d "${IMAGEDATA_DIR}" ] || mkdir -p ${IMAGEDATA_DIR}
 
 RUN chown -R ${USERNAME} ${OPT_DIR}
+RUN chown -R ${USERNAME} ${IMAGEDATA_DIR}

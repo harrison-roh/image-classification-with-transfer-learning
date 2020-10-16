@@ -29,18 +29,20 @@ type DBconn struct {
 
 // Item 데이터 항목
 type Item struct {
-	Model      string
-	Category   string
-	Filename   string
-	FileFormat string
-	FilePath   string
-	CreateAt   time.Time
+	Model       string
+	Category    string
+	OrgFilename string
+	Filename    string
+	FileFormat  string
+	FilePath    string
+	CreateAt    time.Time
 }
 
 func (conn *DBconn) createTable() error {
 	if _, err := conn.db.Exec(fmt.Sprintf(`CREATE TABLE %s (
 		model CHAR(20) NOT NULL,
 		category CHAR(20) NOT NULL,
+		orgfilename Char(20) NOT NULL,
 		filename Char(20) NOT NULL,
 		format Char(10) NOT NULL,
 		path VARCHAR(80) NOT NULL,
@@ -75,11 +77,13 @@ func (conn *DBconn) Insert(item Item) error {
 	_, err := conn.db.Exec(fmt.Sprintf(`INSERT INTO %s (
 		model,
 		category,
+		orgfilename,
 		filename,
 		format,
 		path,
-		createAt) value (?, ?, ?, ?, ?, ?);`, conn.TableName),
-		item.Model, item.Category, item.Filename, item.FileFormat, item.FilePath, createAt,
+		createAt) value (?, ?, ?, ?, ?, ?, ?);`, conn.TableName),
+		item.Model, item.Category, item.OrgFilename, item.Filename,
+		item.FileFormat, item.FilePath, createAt,
 	)
 
 	return err

@@ -83,10 +83,19 @@ func (a *APIs) doInfer(c *gin.Context, model string) {
 
 // UploadImage image를 업로드
 func (a *APIs) UploadImage(c *gin.Context) {
-	if item, err := a.M.Save(c); err != nil {
+	if result, err := a.M.Save(c); err != nil {
 		Error(c, http.StatusBadRequest, err)
 	} else {
-		c.JSON(http.StatusOK, item)
+		c.JSON(http.StatusOK, result)
+	}
+}
+
+// UploadImages image를 업로드
+func (a *APIs) UploadImages(c *gin.Context) {
+	if result, err := a.M.SaveMultiple(c); err != nil {
+		Error(c, http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, result)
 	}
 }
 

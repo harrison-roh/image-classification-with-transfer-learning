@@ -21,7 +21,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	m, err := data.New("test_tab3")
+	m, err := data.New()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,6 +46,7 @@ func main() {
 	imageGroup := r.Group("/image")
 	{
 		imageGroup.POST("upload", a.UploadImage)
+		imageGroup.POST("uploadMultiple", a.UploadImages)
 	}
 
 	r.Run(":18080")

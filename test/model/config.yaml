@@ -1,0 +1,7 @@
+name: test
+tags: [serve]
+input_shape: [224,224]
+input_operation_name: serving_default_input_1
+output_operation_name: StatefulPartitionedCall
+labels_file: labels
+description: This is description

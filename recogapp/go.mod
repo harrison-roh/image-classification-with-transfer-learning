@@ -8,4 +8,5 @@ require (
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/tensorflow/tensorflow v1.12.0 // manually modifed
+	gopkg.in/yaml.v2 v2.2.8
 )

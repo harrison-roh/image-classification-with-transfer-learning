@@ -70,11 +70,11 @@ func (a *APIs) doInfer(c *gin.Context, model string) {
 
 	if infers, err := a.I.Infer(model, image.String(), format, 5); err == nil {
 		c.JSON(http.StatusOK, gin.H{
-			"image":      header.Filename,
-			"format":     format,
-			"bytes":      bytes,
-			"label":      infers[0].Label,
-			"probabilty": infers[0].Prob,
+			"image":          header.Filename,
+			"format":         format,
+			"bytes":          bytes,
+			"top label":      infers[0].Label,
+			"top probabilty": infers[0].Prob,
 		})
 	} else {
 		Error(c, http.StatusBadRequest, err)

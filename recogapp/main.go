@@ -11,11 +11,17 @@ import (
 )
 
 func main() {
-	modelsPath := flag.String("models", "", "Model path for inference")
+	modelsPath := flag.String("models", "/recog/models", "Model path for inference")
+	userModelPath := flag.String("usermodel", "", "User model path for inference")
 	flag.Parse()
+	if flag.NFlag() == 0 {
+		flag.Usage()
+		return
+	}
 
 	i, err := inference.New(inference.Config{
-		ModelsPath: *modelsPath,
+		ModelsPath:    *modelsPath,
+		UserModelPath: *userModelPath,
 	})
 	if err != nil {
 		log.Fatal(err)

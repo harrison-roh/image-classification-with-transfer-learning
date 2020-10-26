@@ -51,8 +51,12 @@ func main() {
 
 	imageGroup := r.Group("/image")
 	{
-		imageGroup.POST("upload", a.UploadImage)
-		imageGroup.POST("uploadMultiple", a.UploadImages)
+		imageGroup.POST("", a.UploadImage)
+	}
+
+	imagesGroup := r.Group("/images")
+	{
+		imagesGroup.POST("", a.UploadImages)
 	}
 
 	r.Run(":18080")

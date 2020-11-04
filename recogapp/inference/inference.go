@@ -185,11 +185,12 @@ func (i *Inference) GetModels() []string {
 func (i *Inference) GetModel(model string) map[string]interface{} {
 	if m, ok := i.models[model]; ok {
 		return map[string]interface{}{
-			"Model":            m.name,
-			"Input operator":   m.inputOp,
-			"Output operator":  m.outputOp,
-			"Number of lables": len(m.labels),
-			"Description":      m.desc,
+			"model":          m.name,
+			"inputOperator":  m.inputOp,
+			"outputOperator": m.outputOp,
+			"inputShape":     m.inputShape,
+			"numberOfLables": m.nrLables,
+			"description":    m.desc,
 		}
 	}
 

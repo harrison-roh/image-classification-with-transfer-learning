@@ -12,6 +12,7 @@ services:
             - db
         volumes:
             - imagedata:/recog/images
+            - modeldata:/recog/models
             - vscode-server:/home/harrison/.vscode-server
             - vscode-server-insiders:/home/harrison/.vscode-server-insiders
             - .:/workspace
@@ -31,6 +32,7 @@ services:
             - db
         volumes:
             - imagedata:/recog/images
+            - modeldata:/recog/models
             - vscode-server:/home/harrison/.vscode-server
             - vscode-server-insiders:/home/harrison/.vscode-server-insiders
             - .:/workspace
@@ -60,9 +62,9 @@ services:
 volumes:
     vscode-server:
     vscode-server-insiders:
-        driver: local
     dbdata:
     imagedata:
+    modeldata:
 
 networks:
     recog-net:

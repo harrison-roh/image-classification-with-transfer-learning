@@ -13,15 +13,13 @@ import (
 func main() {
 	modelsPath := flag.String("models", "/recog/models", "Model path for inference")
 	userModelPath := flag.String("usermodel", "", "User model path for inference")
+	learnHost := flag.String("learnhost", "learnapp:18090", "Model learning host")
 	flag.Parse()
-	if flag.NFlag() == 0 {
-		flag.Usage()
-		return
-	}
 
 	i, err := inference.New(inference.Config{
 		ModelsPath:    *modelsPath,
 		UserModelPath: *userModelPath,
+		LHost:         *learnHost,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -47,6 +45,11 @@ func main() {
 		inferenceGroup.GET(":model", a.ShowInference)
 		inferenceGroup.POST("", a.InferDefault)
 		inferenceGroup.POST(":model", a.InferWithModel)
+	}
+
+	modelGroup := r.Group("/model")
+	{
+		modelGroup.POST(":model", a.CreateModel)
 	}
 
 	imageGroup := r.Group("/image")

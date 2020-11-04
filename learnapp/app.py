@@ -16,11 +16,11 @@ def create_model(model_name):
 
     params = request.get_json()
 
-    model_path = params["modelPath"]
+    model_path = params.get("modelPath", "")
     if model_path == "":
         return error_response(400, "Invalid path for model")
 
-    cfg_file = params["configFile"]
+    cfg_file = params.get("configFile", "")
     if cfg_file == "":
         return error_response(400, "Invalid config file name")
 
@@ -54,7 +54,6 @@ def create_model(model_name):
         yaml.dump(cfg, fp)
 
     response = {
-        "action": "create",
         "modelName": model_name,
         "modelPath": model_path,
         "configFilePath": os.path.join(model_path, cfg_file),
@@ -64,15 +63,9 @@ def create_model(model_name):
     return jsonify(response)
 
 
-@app.route("/model/<model>", methods=["PUT"])
-def trasnfer_learn_model(model):
-    return "Not yet implemented"
-
-
 def error_response(status, message):
     response = jsonify(
         {
-            "status": status,
             "message": message,
         }
     )

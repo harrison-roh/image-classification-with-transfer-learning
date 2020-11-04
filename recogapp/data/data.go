@@ -28,7 +28,7 @@ type Manager struct {
 
 // ImageItem 이미지 저장 정보
 type ImageItem struct {
-	Model       string    `json:"model"`
+	Tag         string    `json:"tag"`
 	Category    string    `json:"category"`
 	OrgFilename string    `json:"orgfilename"`
 	Filename    string    `json:"filename"`
@@ -40,7 +40,7 @@ type ImageItem struct {
 // Save image 저장
 func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 	var (
-		model    string
+		tag      string
 		category string
 		item     ImageItem
 	)
@@ -50,8 +50,8 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 		return item, err
 	}
 
-	if model = c.PostForm("model"); model == "" {
-		return item, errors.New("Empty \"model\"")
+	if tag = c.PostForm("tag"); tag == "" {
+		return item, errors.New("Empty \"tag\"")
 	}
 	if category = c.PostForm("category"); category == "" {
 		return item, errors.New("Empty \"category\"")
@@ -60,7 +60,7 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 	orgFileName := image.Filename
 	fileName := fmt.Sprintf("%s-%s", uuid.New().String()[:8], orgFileName)
 	fileFormat := strings.ToLower(strings.Split(orgFileName, ".")[1])
-	filePath := path.Join(rootImagePath, model, category)
+	filePath := path.Join(rootImagePath, tag, category)
 
 	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
 		return item, err
@@ -71,7 +71,7 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 	}
 
 	item = ImageItem{
-		Model:       model,
+		Tag:         tag,
 		Category:    category,
 		OrgFilename: orgFileName,
 		Filename:    fileName,
@@ -86,13 +86,13 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 // SaveMultiple 복수의 image 저장
 func (dm *Manager) SaveMultiple(c *gin.Context) (interface{}, error) {
 	var (
-		model    string
+		tag      string
 		category string
 		item     ImageItem
 	)
 
 	result := map[string]interface{}{
-		"model":      "",
+		"tag":        "",
 		"category":   "",
 		"path":       "",
 		"total":      0,
@@ -105,17 +105,17 @@ func (dm *Manager) SaveMultiple(c *gin.Context) (interface{}, error) {
 		return item, err
 	}
 
-	if model = c.PostForm("model"); model == "" {
-		return result, errors.New("Empty \"model\"")
+	if tag = c.PostForm("tag"); tag == "" {
+		return result, errors.New("Empty \"tag\"")
 	}
-	result["model"] = model
+	result["tag"] = tag
 
 	if category = c.PostForm("category"); category == "" {
 		return result, errors.New("Empty \"category\"")
 	}
 	result["category"] = category
 
-	filePath := path.Join(rootImagePath, model, category)
+	filePath := path.Join(rootImagePath, tag, category)
 	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
 		return result, err
 	}
@@ -138,7 +138,7 @@ func (dm *Manager) SaveMultiple(c *gin.Context) (interface{}, error) {
 		}
 
 		item = ImageItem{
-			Model:       model,
+			Tag:         tag,
 			Category:    category,
 			OrgFilename: orgFileName,
 			Filename:    fileName,

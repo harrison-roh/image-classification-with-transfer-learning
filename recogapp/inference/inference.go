@@ -2,13 +2,18 @@ package inference
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"sort"
 
+	"github.com/google/uuid"
 	tf "github.com/tensorflow/tensorflow/tensorflow/go"
 	"github.com/tensorflow/tensorflow/tensorflow/go/op"
 	"gopkg.in/yaml.v2"
@@ -18,13 +23,16 @@ import (
 type Config struct {
 	ModelsPath    string
 	UserModelPath string
+	LHost         string
 }
 
 // Inference 이미지 추론 모델 관리
 type Inference struct {
-	models        map[string]iModel
+	models        map[string]*iModel
 	modelsPath    string
 	userModelPath string
+
+	lHost string
 }
 
 type modelConfig struct {
@@ -37,95 +45,130 @@ type modelConfig struct {
 	Description         string   `yaml:"description"`
 }
 
-func loadModel(modelPath string) (iModel, error) {
-	var (
-		cfgBytes []byte
-		cfg      modelConfig
-		model    *tf.SavedModel
-		labelsFp *os.File
-		labels   []string
-		err      error
-	)
-
-	// config 로드
-	cfgFile := path.Join(modelPath, "config.yaml")
-	if cfgBytes, err = ioutil.ReadFile(cfgFile); err != nil {
-		return iModel{}, err
-	}
-
-	if err := yaml.Unmarshal(cfgBytes, &cfg); err != nil {
-		return iModel{}, err
-	}
-
-	// model 로드
-	if model, err = tf.LoadSavedModel(modelPath, cfg.Tags, nil); err != nil {
-		return iModel{}, err
-	}
-
-	// labels 로드
-	labelsFile := path.Join(modelPath, cfg.LabelsFile)
-	if labelsFp, err = os.Open(labelsFile); err != nil {
-		return iModel{}, err
-	}
-	defer labelsFp.Close()
-
-	scanner := bufio.NewScanner(labelsFp)
-	for scanner.Scan() {
-		labels = append(labels, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return iModel{}, err
-	}
-
-	m := iModel{
-		name:         cfg.Name,
-		model:        model,
-		inputOp:      cfg.InputOperationName,
-		outputOp:     cfg.OutputOperationName,
-		inputShape:   cfg.InputShape,
-		imageDecoder: make(map[string]imageDecode),
-		nrLables:     len(labels),
-		labels:       labels,
-		desc:         cfg.Description,
-	}
-
-	return m, nil
-}
-
 func (i *Inference) loadModels() error {
 	dirs, _ := ioutil.ReadDir(i.modelsPath)
 
 	for _, dir := range dirs {
 		modelPath := path.Join(i.modelsPath, dir.Name())
 
-		if m, err := loadModel(modelPath); err != nil {
+		m := getNewModel("", modelPath)
+		if err := loadModel(&m); err != nil {
 			log.Printf("Fail to load model(%s): %s", modelPath, err)
+			i.delModel(m)
 		} else {
-			i.addModel(m)
+			i.addModel(&m)
 		}
 	}
 
 	if i.userModelPath != "" {
-		if m, err := loadModel(i.userModelPath); err != nil {
+		m := getNewModel("", i.userModelPath)
+		if err := loadModel(&m); err != nil {
 			log.Printf("Fail to load user model(%s): %s", i.userModelPath, err)
 		} else {
-			i.addModel(m)
+			i.addModel(&m)
 		}
 	}
 
 	return nil
 }
 
-func (i *Inference) addModel(m iModel) {
-	for modelName := range i.models {
-		if modelName == m.name {
-			log.Printf("Duplicated model: %s", m.name)
-			return
+func (i *Inference) init() error {
+	if err := i.loadModels(); err != nil {
+		return nil
+	}
+
+	if len(i.models) == 0 {
+		// 아무런 추론 모델이 없는 경우 기본 모델을 생성
+		result, err := i.CreateModel("default", "", "Default Model")
+		if err != nil {
+			return err
+		}
+		log.Printf("Create default model: %v", result)
+	}
+
+	return nil
+}
+
+func (i *Inference) addModel(newM *iModel) error {
+	if newM.name == "" {
+		return errors.New("Empty model name")
+	}
+
+	for model, m := range i.models {
+		if model == newM.name || m.name == newM.name {
+			return fmt.Errorf("Duplicated model: %s", newM.name)
+		} else if m.modelPath == newM.modelPath {
+			return fmt.Errorf("Duplicated model path: %s", newM.modelPath)
 		}
 	}
 
-	i.models[m.name] = m
-	log.Printf("Successfully loaded: %s", m.name)
+	i.models[newM.name] = newM
+	return nil
+}
+
+func (i *Inference) delModel(delM iModel) error {
+	// 중복된 검사이지만 동작 결과를 위해 추가
+	if _, ok := i.models[delM.name]; !ok {
+		return fmt.Errorf("Not exists model: %s", delM.name)
+	}
+	delete(i.models, delM.name)
+
+	return os.RemoveAll(delM.modelPath)
+}
+
+// CreateRequest TODO
+type CreateRequest struct {
+	// Image label for this model
+	Tag string `json:"tag"`
+
+	// Model meta information
+	ModelPath   string `json:"modelPath"`
+	ConfigFile  string `json:"configFile"`
+	Description string `json:"desc"`
+}
+
+// CreateModel TODO
+func (i *Inference) CreateModel(newModel, tag, desc string) (map[string]interface{}, error) {
+	modelDir := fmt.Sprintf("%s-%s", newModel, uuid.New().String()[:8])
+	modelPath := path.Join(i.modelsPath, modelDir)
+
+	m := getNewModel(newModel, modelPath)
+	if err := i.addModel(&m); err != nil {
+		return nil, err
+	}
+
+	configFile := path.Join(modelPath, "config.yaml")
+
+	req := CreateRequest{
+		Tag:         tag,
+		ModelPath:   modelPath,
+		ConfigFile:  configFile,
+		Description: desc,
+	}
+
+	j, _ := json.Marshal(req)
+	data := bytes.NewBuffer(j)
+
+	url := fmt.Sprintf("http://%s/model/%s", i.lHost, newModel)
+	res, err := http.Post(url, "application/json", data)
+	if err != nil {
+		i.delModel(m)
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		i.delModel(m)
+		return nil, err
+	}
+
+	if err := loadModel(&m); err != nil {
+		i.delModel(m)
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // GetModels 이미지 추론 모델 목록 반환
@@ -185,11 +228,18 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 	return infers[:k], nil
 }
 
+const (
+	modelStatusReady = iota
+	modelStatusRun
+)
+
 // Model 이미지 추론 모델
 type iModel struct {
-	name string
+	name      string
+	modelPath string
+	status    int32
 
-	model      *tf.SavedModel
+	tfModel    *tf.SavedModel
 	inputOp    string
 	outputOp   string
 	inputShape []int32
@@ -221,12 +271,12 @@ func (m *iModel) infer(image, format string) ([]float32, error) {
 		return nil, err
 	}
 
-	if results, err = m.model.Session.Run(
+	if results, err = m.tfModel.Session.Run(
 		map[tf.Output]*tf.Tensor{
-			m.model.Graph.Operation(m.inputOp).Output(0): inputImage,
+			m.tfModel.Graph.Operation(m.inputOp).Output(0): inputImage,
 		},
 		[]tf.Output{
-			m.model.Graph.Operation(m.outputOp).Output(0),
+			m.tfModel.Graph.Operation(m.outputOp).Output(0),
 		},
 		nil,
 	); err != nil {
@@ -319,6 +369,72 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 	return decoder, nil
 }
 
+func getNewModel(modelName, modelPath string) iModel {
+	return iModel{
+		name:      modelName,
+		modelPath: modelPath,
+		status:    modelStatusReady,
+	}
+}
+
+func loadModel(m *iModel) error {
+	var (
+		cfgBytes []byte
+		cfg      modelConfig
+		tfModel  *tf.SavedModel
+		labelsFp *os.File
+		labels   []string
+		err      error
+	)
+
+	// config 로드
+	cfgFile := path.Join(m.modelPath, "config.yaml")
+	if cfgBytes, err = ioutil.ReadFile(cfgFile); err != nil {
+		return err
+	}
+
+	if err := yaml.Unmarshal(cfgBytes, &cfg); err != nil {
+		return err
+	}
+
+	if m.name != "" && m.name != cfg.Name {
+		return fmt.Errorf("Not matched model name[%s] in configuration[%s]", m.name, cfg.Name)
+	}
+
+	// model 로드
+	if tfModel, err = tf.LoadSavedModel(m.modelPath, cfg.Tags, nil); err != nil {
+		return err
+	}
+
+	// labels 로드
+	labelsFile := path.Join(m.modelPath, cfg.LabelsFile)
+	if labelsFp, err = os.Open(labelsFile); err != nil {
+		return err
+	}
+	defer labelsFp.Close()
+
+	scanner := bufio.NewScanner(labelsFp)
+	for scanner.Scan() {
+		labels = append(labels, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	m.name = cfg.Name
+	m.tfModel = tfModel
+	m.inputOp = cfg.InputOperationName
+	m.outputOp = cfg.OutputOperationName
+	m.inputShape = cfg.InputShape[:2]
+	m.imageDecoder = make(map[string]imageDecode)
+	m.nrLables = len(labels)
+	m.labels = labels
+	m.desc = cfg.Description
+	m.status = modelStatusReady
+
+	return nil
+}
+
 // InferLabel 이미지 추론 항목
 type InferLabel struct {
 	Prob  float32
@@ -342,11 +458,12 @@ func (s sortByProb) Less(i, j int) bool {
 // New 이미지 추론 모델 생성
 func New(c Config) (i *Inference, err error) {
 	i = &Inference{
-		models:        make(map[string]iModel),
+		models:        make(map[string]*iModel),
 		modelsPath:    c.ModelsPath,
 		userModelPath: c.UserModelPath,
+		lHost:         c.LHost,
 	}
-	err = i.loadModels()
+	err = i.init()
 
 	return
 }

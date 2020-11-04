@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -78,6 +79,24 @@ func (a *APIs) doInfer(c *gin.Context, model string) {
 		})
 	} else {
 		Error(c, http.StatusBadRequest, err)
+	}
+}
+
+// CreateModel model 생성
+func (a *APIs) CreateModel(c *gin.Context) {
+	model := c.Param("model")
+	if model == "" {
+		Error(c, http.StatusBadRequest, errors.New("Empty model name"))
+	}
+
+	tag := c.PostForm("tag")
+	desc := c.PostForm("desc")
+
+	res, err := a.I.CreateModel(model, tag, desc)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, err)
+	} else {
+		c.JSON(http.StatusOK, res)
 	}
 }
 

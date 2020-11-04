@@ -9,6 +9,7 @@ ARG USER_GID=${USER_UID}
 
 ARG OPT_DIR=/recog/opt
 ARG IMAGEDATA_DIR=/recog/images
+ARG MODELDATA_DIR=/recog/models
 
 ENV TZ=Asia/Seoul
 RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
@@ -39,12 +40,14 @@ RUN ldconfig
 
 RUN [ -d "${OPT_DIR}" ] || mkdir -p ${OPT_DIR}
 RUN [ -d "${IMAGEDATA_DIR}" ] || mkdir -p ${IMAGEDATA_DIR}
+RUN [ -d "${MODELDATA_DIR}" ] || mkdir -p ${MODELDATA_DIR}
 
 # golang
 RUN curl https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz | tar zx -C ${OPT_DIR}
 
 RUN chown -R ${USERNAME} ${OPT_DIR}
 RUN chown -R ${USERNAME} ${IMAGEDATA_DIR}
+RUN chown -R ${USERNAME} ${MODELDATA_DIR}
 
 ENV GOPATH /workspace/recogapp/.go
 ENV PATH /workspace/recogapp/.go/bin:${OPT_DIR}/go/bin:$PATH

@@ -19,16 +19,16 @@ type APIs struct {
 	M *data.Manager
 }
 
-// ListInference 추론 모델 목록 반환
-func (a *APIs) ListInference(c *gin.Context) {
+// ListModels 추론 모델 목록 반환
+func (a *APIs) ListModels(c *gin.Context) {
 	models := a.I.GetModels()
 	c.JSON(http.StatusOK, gin.H{
 		"models": models,
 	})
 }
 
-// ShowInference 추론 모델 정보 반환
-func (a *APIs) ShowInference(c *gin.Context) {
+// ShowModel 추론 모델 정보 반환
+func (a *APIs) ShowModel(c *gin.Context) {
 	model := c.Param("model")
 
 	if info := a.I.GetModel(model); info != nil {

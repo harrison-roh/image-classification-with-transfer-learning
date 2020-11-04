@@ -41,14 +41,14 @@ func main() {
 
 	inferenceGroup := r.Group("/inference")
 	{
-		inferenceGroup.GET("", a.ListInference)
-		inferenceGroup.GET(":model", a.ShowInference)
 		inferenceGroup.POST("", a.InferDefault)
 		inferenceGroup.POST(":model", a.InferWithModel)
 	}
 
 	modelGroup := r.Group("/model")
 	{
+		modelGroup.GET("", a.ListModels)
+		modelGroup.GET(":model", a.ShowModel)
 		modelGroup.POST(":model", a.CreateModel)
 	}
 

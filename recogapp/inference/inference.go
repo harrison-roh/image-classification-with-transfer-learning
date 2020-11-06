@@ -12,6 +12,8 @@ import (
 	"os"
 	"path"
 	"sort"
+	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	tf "github.com/tensorflow/tensorflow/tensorflow/go"
@@ -29,6 +31,7 @@ type Config struct {
 // Inference 이미지 추론 모델 관리
 type Inference struct {
 	models        map[string]*iModel
+	mutex         sync.RWMutex
 	modelsPath    string
 	userModelPath string
 
@@ -52,20 +55,20 @@ func (i *Inference) loadModels() error {
 		modelPath := path.Join(i.modelsPath, dir.Name())
 
 		m := getNewModel("", modelPath)
-		if err := loadModel(&m); err != nil {
+		if err := loadModel(m); err != nil {
 			log.Printf("Fail to load model(%s): %s", modelPath, err)
-			i.delModel(m)
+			i.delModelUncond(m)
 		} else {
-			i.addModel(&m)
+			i.addModel(m)
 		}
 	}
 
 	if i.userModelPath != "" {
 		m := getNewModel("", i.userModelPath)
-		if err := loadModel(&m); err != nil {
+		if err := loadModel(m); err != nil {
 			log.Printf("Fail to load user model(%s): %s", i.userModelPath, err)
 		} else {
-			i.addModel(&m)
+			i.addModel(m)
 		}
 	}
 
@@ -74,7 +77,7 @@ func (i *Inference) loadModels() error {
 
 func (i *Inference) init() error {
 	if err := i.loadModels(); err != nil {
-		return nil
+		return err
 	}
 
 	if len(i.models) == 0 {
@@ -106,14 +109,39 @@ func (i *Inference) addModel(newM *iModel) error {
 	return nil
 }
 
-func (i *Inference) delModel(delM iModel) error {
-	// 중복된 검사이지만 동작 결과를 위해 추가
-	if _, ok := i.models[delM.name]; !ok {
-		return fmt.Errorf("Not exists model: %s", delM.name)
+func (i *Inference) delModel(delM *iModel) error {
+	if delM.refCount > 0 {
+		return fmt.Errorf("Currently in use: %s (%d)", delM.name, delM.refCount)
 	}
+
+	if err := os.RemoveAll(delM.modelPath); err != nil {
+		return err
+	}
+
 	delete(i.models, delM.name)
 
-	return os.RemoveAll(delM.modelPath)
+	return nil
+}
+
+func (i *Inference) delModelUncond(delM *iModel) {
+	if err := os.RemoveAll(delM.modelPath); err != nil {
+		log.Print(err)
+	}
+
+	delete(i.models, delM.name)
+}
+
+func (i *Inference) getModel(model string) *iModel {
+	if m, ok := i.models[model]; ok {
+		atomic.AddInt32(&m.refCount, 1)
+		return m
+	}
+
+	return nil
+}
+
+func (i *Inference) putModel(m *iModel) {
+	atomic.AddInt32(&m.refCount, -1)
 }
 
 // CreateRequest TODO
@@ -133,9 +161,15 @@ func (i *Inference) CreateModel(newModel, tag, desc string) (map[string]interfac
 	modelPath := path.Join(i.modelsPath, modelDir)
 
 	m := getNewModel(newModel, modelPath)
-	if err := i.addModel(&m); err != nil {
+	i.mutex.Lock()
+	// 새로운 모델 생성 및 로드 전 슬롯 선점
+	if err := i.addModel(m); err != nil {
+		i.mutex.Unlock()
 		return nil, err
 	}
+	// 모델 로드가 완료되기전 삭제가 되지 않도록 참조카운터를 증가
+	i.getModel(newModel)
+	i.mutex.Unlock()
 
 	configFile := path.Join(modelPath, "config.yaml")
 
@@ -152,27 +186,37 @@ func (i *Inference) CreateModel(newModel, tag, desc string) (map[string]interfac
 	url := fmt.Sprintf("http://%s/model/%s", i.lHost, newModel)
 	res, err := http.Post(url, "application/json", data)
 	if err != nil {
-		i.delModel(m)
+		i.mutex.Lock()
+		i.delModelUncond(m)
+		i.mutex.Unlock()
 		return nil, err
 	}
 	defer res.Body.Close()
 
 	var response map[string]interface{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		i.delModel(m)
+		i.mutex.Lock()
+		i.delModelUncond(m)
+		i.mutex.Unlock()
 		return nil, err
 	}
 
-	if err := loadModel(&m); err != nil {
-		i.delModel(m)
+	if err := loadModel(m); err != nil {
+		i.mutex.Lock()
+		i.delModelUncond(m)
+		i.mutex.Unlock()
 		return nil, err
 	}
 
+	i.putModel(m)
 	return response, nil
 }
 
 // GetModels 이미지 추론 모델 목록 반환
 func (i *Inference) GetModels() []string {
+	i.mutex.RLock()
+	defer i.mutex.RUnlock()
+
 	var models []string
 	for model := range i.models {
 		models = append(models, model)
@@ -183,25 +227,50 @@ func (i *Inference) GetModels() []string {
 
 // GetModel 이미지 추론 모델 정보 반환
 func (i *Inference) GetModel(model string) map[string]interface{} {
-	if m, ok := i.models[model]; ok {
-		return map[string]interface{}{
-			"model":          m.name,
-			"inputOperator":  m.inputOp,
-			"outputOperator": m.outputOp,
-			"inputShape":     m.inputShape,
-			"numberOfLables": m.nrLables,
-			"description":    m.desc,
-		}
+	i.mutex.RLock()
+	m := i.getModel(model)
+	i.mutex.RUnlock()
+
+	if m == nil {
+		return nil
+	}
+	defer i.putModel(m)
+
+	var status string
+	switch m.status {
+	case modelStatusReady:
+		status = "ready"
+	case modelStatusRun:
+		status = "run"
+	default:
+		status = "unknown"
 	}
 
-	return nil
+	return map[string]interface{}{
+		"model":          m.name,
+		"refCount":       m.refCount,
+		"status":         status,
+		"inputOperator":  m.inputOp,
+		"outputOperator": m.outputOp,
+		"inputShape":     m.inputShape,
+		"numberOfLables": m.nrLables,
+		"description":    m.desc,
+	}
 }
 
 // Infer 추론
 func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, error) {
-	m, ok := i.models[model]
-	if !ok {
-		return nil, fmt.Errorf("Cannot find model: %s", model)
+	i.mutex.RLock()
+	m := i.getModel(model)
+	i.mutex.RUnlock()
+
+	if m == nil {
+		return nil, fmt.Errorf("No such model: %s", model)
+	}
+	defer i.putModel(m)
+
+	if m.status != modelStatusRun {
+		return nil, fmt.Errorf("Not ready yet")
 	}
 
 	result, err := m.infer(image, format)
@@ -239,6 +308,7 @@ type iModel struct {
 	name      string
 	modelPath string
 	status    int32
+	refCount  int32
 
 	tfModel    *tf.SavedModel
 	inputOp    string
@@ -370,8 +440,8 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 	return decoder, nil
 }
 
-func getNewModel(modelName, modelPath string) iModel {
-	return iModel{
+func getNewModel(modelName, modelPath string) *iModel {
+	return &iModel{
 		name:      modelName,
 		modelPath: modelPath,
 		status:    modelStatusReady,
@@ -431,7 +501,8 @@ func loadModel(m *iModel) error {
 	m.nrLables = len(labels)
 	m.labels = labels
 	m.desc = cfg.Description
-	m.status = modelStatusReady
+	// Setting status should always be last
+	m.status = modelStatusRun
 
 	return nil
 }

@@ -50,6 +50,7 @@ func main() {
 		modelGroup.GET("", a.ListModels)
 		modelGroup.GET(":model", a.ShowModel)
 		modelGroup.POST(":model", a.CreateModel)
+		modelGroup.DELETE(":model", a.DeleteModel)
 	}
 
 	imageGroup := r.Group("/image")

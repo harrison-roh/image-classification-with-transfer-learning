@@ -109,16 +109,21 @@ func (i *Inference) addModel(newM *iModel) error {
 	return nil
 }
 
-func (i *Inference) delModel(delM *iModel) error {
-	if delM.refCount > 0 {
-		return fmt.Errorf("Currently in use: %s (%d)", delM.name, delM.refCount)
+func (i *Inference) delModel(model string) error {
+	m, ok := i.models[model]
+	if !ok {
+		return fmt.Errorf("No such model: %s", model)
 	}
 
-	if err := os.RemoveAll(delM.modelPath); err != nil {
+	if m.refCount > 0 {
+		return fmt.Errorf("Currently in use: %s (%d)", m.name, m.refCount)
+	}
+
+	if err := os.RemoveAll(m.modelPath); err != nil {
 		return err
 	}
 
-	delete(i.models, delM.name)
+	delete(i.models, m.name)
 
 	return nil
 }
@@ -210,6 +215,14 @@ func (i *Inference) CreateModel(newModel, tag, desc string) (map[string]interfac
 
 	i.putModel(m)
 	return response, nil
+}
+
+// DeleteModel 모델 삭제
+func (i *Inference) DeleteModel(model string) error {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
+	return i.delModel(model)
 }
 
 // GetModels 이미지 추론 모델 목록 반환

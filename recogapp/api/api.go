@@ -92,11 +92,24 @@ func (a *APIs) CreateModel(c *gin.Context) {
 	tag := c.PostForm("tag")
 	desc := c.PostForm("desc")
 
-	res, err := a.I.CreateModel(model, tag, desc)
-	if err != nil {
+	if res, err := a.I.CreateModel(model, tag, desc); err != nil {
 		Error(c, http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, res)
+	}
+}
+
+// DeleteModel model 생성
+func (a *APIs) DeleteModel(c *gin.Context) {
+	model := c.Param("model")
+	if model == "" {
+		Error(c, http.StatusBadRequest, errors.New("Empty model name"))
+	}
+
+	if err := a.I.DeleteModel(model); err != nil {
+		Error(c, http.StatusInternalServerError, err)
+	} else {
+		c.String(http.StatusOK, "OK")
 	}
 }
 

@@ -42,9 +42,12 @@ def create_model(model_name):
 
     cfg = {
         "name": model_name,
-        "tags": ["serve"],
-        "input_shape": list(model.input_shape[1:]),  # ignore batch size
-        "input_operation_name": "serving_default_input_1",  # TODO
+        # meta graph를 명시하며 "serving"을 사용
+        "tags": [tf.saved_model.SERVING],
+        # ignore batch size
+        "input_shape": list(model.input_shape[1:]),
+        # signature는 함수를 구분하며, 기본 함수 signature를 이용
+        "input_operation_name": f"{tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY}_{model.input_names[0]}",  # TODO
         "output_operation_name": "StatefulPartitionedCall",  # TODO
         "labels_file": labels_file,
         "description": desc,

@@ -40,6 +40,7 @@ type Inference struct {
 
 type modelConfig struct {
 	Name                string   `yaml:"name"`
+	Type                string   `yaml:"type"`
 	Tags                []string `yaml:"tags"`
 	InputShape          []int32  `yaml:"input_shape"`
 	InputOperationName  string   `yaml:"input_operation_name"`
@@ -82,7 +83,7 @@ func (i *Inference) init() error {
 
 	if len(i.models) == 0 {
 		// 아무런 추론 모델이 없는 경우 기본 모델을 생성
-		result, err := i.CreateModel("default", "", "Default Model")
+		result, err := i.CreateModel("default", "", "Default Model", false)
 		if err != nil {
 			return err
 		}
@@ -158,10 +159,14 @@ type CreateRequest struct {
 	ModelPath   string `json:"modelPath"`
 	ConfigFile  string `json:"configFile"`
 	Description string `json:"desc"`
+
+	Epochs int `json:"epochs"`
+
+	Trial bool `json:"trial"`
 }
 
 // CreateModel TODO
-func (i *Inference) CreateModel(newModel, tag, desc string) (map[string]interface{}, error) {
+func (i *Inference) CreateModel(newModel, tag, desc string, trial bool) (map[string]interface{}, error) {
 	modelDir := fmt.Sprintf("%s-%s", newModel, uuid.New().String()[:8])
 	modelPath := path.Join(i.modelsPath, modelDir)
 
@@ -183,6 +188,8 @@ func (i *Inference) CreateModel(newModel, tag, desc string) (map[string]interfac
 		ModelPath:   modelPath,
 		ConfigFile:  configFile,
 		Description: desc,
+		Epochs:      1,
+		Trial:       trial,
 	}
 
 	j, _ := json.Marshal(req)
@@ -261,6 +268,7 @@ func (i *Inference) GetModel(model string) map[string]interface{} {
 
 	return map[string]interface{}{
 		"model":          m.name,
+		"type":           m.cfg.Type,
 		"refCount":       m.refCount,
 		"status":         status,
 		"inputOperator":  m.inputOp,
@@ -308,6 +316,10 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 		k = 5
 	}
 
+	if k > len(infers) {
+		k = len(infers)
+	}
+
 	return infers[:k], nil
 }
 
@@ -320,6 +332,7 @@ const (
 type iModel struct {
 	name      string
 	modelPath string
+	cfg       modelConfig
 	status    int32
 	refCount  int32
 
@@ -505,6 +518,7 @@ func loadModel(m *iModel) error {
 		return err
 	}
 
+	m.cfg = cfg
 	m.name = cfg.Name
 	m.tfModel = tfModel
 	m.inputOp = cfg.InputOperationName

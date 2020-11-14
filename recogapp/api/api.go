@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -91,8 +92,13 @@ func (a *APIs) CreateModel(c *gin.Context) {
 
 	tag := c.PostForm("tag")
 	desc := c.PostForm("desc")
+	trial := c.PostForm("trial")
+	isTrial, err := strconv.ParseBool(trial)
+	if err != nil {
+		isTrial = false
+	}
 
-	if res, err := a.I.CreateModel(model, tag, desc); err != nil {
+	if res, err := a.I.CreateModel(model, tag, desc, isTrial); err != nil {
 		Error(c, http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, res)

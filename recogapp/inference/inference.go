@@ -38,10 +38,16 @@ type Inference struct {
 	lHost string
 }
 
+const (
+	binaryClass = "binary"
+	multiClass  = "multi"
+)
+
 type modelConfig struct {
 	Name                string   `yaml:"name"`
 	Type                string   `yaml:"type"`
 	Tags                []string `yaml:"tags"`
+	Classification      string   `yaml:"classification"`
 	InputShape          []int32  `yaml:"input_shape"`
 	InputOperationName  string   `yaml:"input_operation_name"`
 	OutputOperationName string   `yaml:"output_operation_name"`
@@ -269,13 +275,14 @@ func (i *Inference) GetModel(model string) map[string]interface{} {
 	return map[string]interface{}{
 		"model":          m.name,
 		"type":           m.cfg.Type,
+		"classification": m.cfg.Classification,
 		"refCount":       m.refCount,
 		"status":         status,
-		"inputOperator":  m.inputOp,
-		"outputOperator": m.outputOp,
+		"inputOperator":  m.cfg.InputOperationName,
+		"outputOperator": m.cfg.OutputOperationName,
 		"inputShape":     m.inputShape,
 		"numberOfLables": m.nrLables,
-		"description":    m.desc,
+		"description":    m.cfg.Description,
 	}
 }
 
@@ -299,15 +306,43 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 		return nil, err
 	}
 
+	if m.cfg.Classification == binaryClass {
+		return classifyBinary(result[0], m.labels)
+	} else if m.cfg.Classification == multiClass {
+		return classifyMulti(result, m.labels, k)
+	}
+
+	return nil, fmt.Errorf("Unknown classification: %s", m.cfg.Classification)
+}
+
+func classifyBinary(prob float32, labels []string) ([]InferLabel, error) {
+	var (
+		idx    int
+		infers []InferLabel
+	)
+
+	idx = 0
+	if prob >= 0.5 {
+		idx = 1
+	}
+
+	infers = make([]InferLabel, 1)
+	infers[0].Prob = prob
+	infers[0].Label = labels[idx]
+
+	return infers, nil
+}
+
+func classifyMulti(probs []float32, labels []string, k int) ([]InferLabel, error) {
 	var infers []InferLabel
-	for idx, prob := range result {
-		if idx >= len(m.labels) {
+	for idx, prob := range probs {
+		if idx >= len(labels) {
 			break
 		}
 
 		infers = append(infers, InferLabel{
 			Prob:  prob,
-			Label: m.labels[idx],
+			Label: labels[idx],
 		})
 	}
 	sort.Sort(sortByProb(infers))
@@ -337,16 +372,12 @@ type iModel struct {
 	refCount  int32
 
 	tfModel    *tf.SavedModel
-	inputOp    string
-	outputOp   string
 	inputShape []int32
 
 	imageDecoder map[string]imageDecode
 
 	nrLables int
 	labels   []string
-
-	desc string
 }
 
 // 이미지 타입의 디코더
@@ -370,10 +401,10 @@ func (m *iModel) infer(image, format string) ([]float32, error) {
 
 	if results, err = m.tfModel.Session.Run(
 		map[tf.Output]*tf.Tensor{
-			m.tfModel.Graph.Operation(m.inputOp).Output(0): inputImage,
+			m.tfModel.Graph.Operation(m.cfg.InputOperationName).Output(0): inputImage,
 		},
 		[]tf.Output{
-			m.tfModel.Graph.Operation(m.outputOp).Output(0),
+			m.tfModel.Graph.Operation(m.cfg.OutputOperationName).Output(0),
 		},
 		nil,
 	); err != nil {
@@ -521,13 +552,10 @@ func loadModel(m *iModel) error {
 	m.cfg = cfg
 	m.name = cfg.Name
 	m.tfModel = tfModel
-	m.inputOp = cfg.InputOperationName
-	m.outputOp = cfg.OutputOperationName
 	m.inputShape = cfg.InputShape[:2]
 	m.imageDecoder = make(map[string]imageDecode)
 	m.nrLables = len(labels)
 	m.labels = labels
-	m.desc = cfg.Description
 	// Setting status should always be last
 	m.status = modelStatusRun
 

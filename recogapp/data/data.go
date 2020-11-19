@@ -45,52 +45,6 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 		item     ImageItem
 	)
 
-	image, err := c.FormFile("image")
-	if err != nil {
-		return item, err
-	}
-
-	if tag = c.PostForm("tag"); tag == "" {
-		return item, errors.New("Empty \"tag\"")
-	}
-	if category = c.PostForm("category"); category == "" {
-		return item, errors.New("Empty \"category\"")
-	}
-
-	orgFileName := image.Filename
-	fileName := fmt.Sprintf("%s-%s", uuid.New().String()[:8], orgFileName)
-	fileFormat := strings.ToLower(strings.Split(orgFileName, ".")[1])
-	filePath := path.Join(rootImagePath, tag, category)
-
-	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
-		return item, err
-	}
-
-	if err := c.SaveUploadedFile(image, path.Join(filePath, fileName)); err != nil {
-		return item, err
-	}
-
-	item = ImageItem{
-		Tag:         tag,
-		Category:    category,
-		OrgFilename: orgFileName,
-		Filename:    fileName,
-		FileFormat:  fileFormat,
-		FilePath:    filePath,
-		CreateAt:    time.Now(),
-	}
-
-	return item, dm.Conn.Insert(db.Item(item))
-}
-
-// SaveMultiple 복수의 image 저장
-func (dm *Manager) SaveMultiple(c *gin.Context) (interface{}, error) {
-	var (
-		tag      string
-		category string
-		item     ImageItem
-	)
-
 	result := map[string]interface{}{
 		"tag":        "",
 		"category":   "",

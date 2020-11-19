@@ -119,18 +119,9 @@ func (a *APIs) DeleteModel(c *gin.Context) {
 	}
 }
 
-// UploadImage image를 업로드
-func (a *APIs) UploadImage(c *gin.Context) {
-	if result, err := a.M.Save(c); err != nil {
-		Error(c, http.StatusBadRequest, err)
-	} else {
-		c.JSON(http.StatusOK, result)
-	}
-}
-
-// UploadImages image를 업로드
+// UploadImages image 업로드
 func (a *APIs) UploadImages(c *gin.Context) {
-	if result, err := a.M.SaveMultiple(c); err != nil {
+	if result, err := a.M.Save(c); err != nil {
 		Error(c, http.StatusBadRequest, err)
 	} else {
 		c.JSON(http.StatusOK, result)

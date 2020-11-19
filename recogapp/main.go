@@ -45,17 +45,12 @@ func main() {
 		inferenceGroup.POST(":model", a.InferWithModel)
 	}
 
-	modelGroup := r.Group("/model")
+	modelGroup := r.Group("/models")
 	{
 		modelGroup.GET("", a.ListModels)
 		modelGroup.GET(":model", a.ShowModel)
 		modelGroup.POST(":model", a.CreateModel)
 		modelGroup.DELETE(":model", a.DeleteModel)
-	}
-
-	imageGroup := r.Group("/image")
-	{
-		imageGroup.POST("", a.UploadImage)
 	}
 
 	imagesGroup := r.Group("/images")

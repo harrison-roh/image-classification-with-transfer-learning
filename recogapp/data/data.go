@@ -116,10 +116,6 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 	return result, nil
 }
 
-func (dm *Manager) save() error {
-	return nil
-}
-
 // Destroy Data manager 해제
 func (dm *Manager) Destroy() {
 	if err := dm.Conn.Destroy(); err != nil {

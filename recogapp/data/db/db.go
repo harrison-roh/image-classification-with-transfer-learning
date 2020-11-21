@@ -27,15 +27,27 @@ type DBconn struct {
 	db *sql.DB
 }
 
+type NullTime struct {
+	sql.NullTime
+}
+
+func (nt *NullTime) MarshalJSON() ([]byte, error) {
+	if !nt.Valid {
+		return []byte("null"), nil
+	}
+	val := fmt.Sprintf("\"%s\"", nt.Time.Format(time.RFC3339))
+	return []byte(val), nil
+}
+
 // Item 데이터 항목
 type Item struct {
-	Tag         string
-	Category    string
-	OrgFilename string
-	Filename    string
-	FileFormat  string
-	FilePath    string
-	CreateAt    time.Time
+	Tag         string    `json:"tag"`
+	Category    string    `json:"category"`
+	OrgFilename string    `json:"orgfilename"`
+	Filename    string    `json:"filename,omitempty"`
+	FileFormat  string    `json:"-"`
+	FilePath    string    `json:"-"`
+	CreateAt    time.Time `json:"createAt"`
 }
 
 func (conn *DBconn) createTable() error {
@@ -87,6 +99,58 @@ func (conn *DBconn) Insert(item Item) error {
 	)
 
 	return err
+}
+
+// List entry 반환
+func (conn *DBconn) List(tag, category string) (interface{}, interface{}, error) {
+	query := fmt.Sprintf("SELECT tag,category,orgfilename,createAt FROM %s", conn.TableName)
+	if tag != "" {
+		query = fmt.Sprintf("%s WHERE tag='%s'", query, tag)
+	}
+	if category != "" {
+		if tag != "" {
+			query = fmt.Sprintf("%s AND category='%s'", query, category)
+		} else {
+			query = fmt.Sprintf("%s WHERE category='%s'", query, category)
+		}
+	}
+
+	rows, err := conn.db.Query(query)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var (
+		total      int
+		successful int
+		failed     int
+	)
+
+	var items []Item
+	for rows.Next() {
+		total++
+		item := Item{}
+		if err := rows.Scan(
+			&item.Tag,
+			&item.Category,
+			&item.OrgFilename,
+			&item.CreateAt); err != nil {
+			failed++
+			log.Print(err)
+			continue
+		}
+
+		successful++
+		items = append(items, item)
+	}
+
+	infos := map[string]int{
+		"total":      total,
+		"successful": successful,
+		"failed":     failed,
+	}
+
+	return infos, items, nil
 }
 
 // Destroy db connection 해제

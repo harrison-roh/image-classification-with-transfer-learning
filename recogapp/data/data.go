@@ -18,7 +18,7 @@ const (
 	rootImagePath string = "/recog/images"
 	tableName     string = "image_tab"
 	driverName    string = "mysql"
-	connInfo      string = "user1:password1@tcp(db:3306)/recog_image_db"
+	connInfo      string = "user1:password1@tcp(db:3306)/recog_image_db?parseTime=true"
 )
 
 // Manager 이미지 데이터를 관리
@@ -26,23 +26,11 @@ type Manager struct {
 	Conn *db.DBconn
 }
 
-// ImageItem 이미지 저장 정보
-type ImageItem struct {
-	Tag         string    `json:"tag"`
-	Category    string    `json:"category"`
-	OrgFilename string    `json:"orgfilename"`
-	Filename    string    `json:"filename"`
-	FileFormat  string    `json:"format"`
-	FilePath    string    `json:"path"`
-	CreateAt    time.Time `json:"createAt"`
-}
-
-// Save image 저장
-func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
+// SaveImages image 저장
+func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 	var (
 		tag      string
 		category string
-		item     ImageItem
 	)
 
 	result := map[string]interface{}{
@@ -56,7 +44,7 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		return item, err
+		return result, err
 	}
 
 	if tag = c.PostForm("tag"); tag == "" {
@@ -91,7 +79,7 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 			continue
 		}
 
-		item = ImageItem{
+		item := db.Item{
 			Tag:         tag,
 			Category:    category,
 			OrgFilename: orgFileName,
@@ -101,7 +89,7 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 			CreateAt:    time.Now(),
 		}
 
-		if err := dm.Conn.Insert(db.Item(item)); err != nil {
+		if err := dm.Conn.Insert(item); err != nil {
 			log.Print(err)
 			nrFailed++
 		} else {
@@ -112,6 +100,21 @@ func (dm *Manager) Save(c *gin.Context) (interface{}, error) {
 	result["total"] = total
 	result["failed"] = nrFailed
 	result["successful"] = nrSuccessful
+
+	return result, nil
+}
+
+// ListImages image 목록 반환
+func (dm *Manager) ListImages(tag, category string) (interface{}, error) {
+	infos, items, err := dm.Conn.List(tag, category)
+	if err != nil {
+		return nil, err
+	}
+
+	result := map[string]interface{}{
+		"infos":  infos,
+		"images": items,
+	}
 
 	return result, nil
 }

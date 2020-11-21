@@ -41,16 +41,16 @@ func (a *APIs) ShowModel(c *gin.Context) {
 
 // InferDefault 기본 모델을 이용한 추론
 func (a *APIs) InferDefault(c *gin.Context) {
-	a.doInfer(c, "default")
+	a.infer(c, "default")
 }
 
 // InferWithModel 모델을 이용한 추론
 func (a *APIs) InferWithModel(c *gin.Context) {
 	model := c.Param("model")
-	a.doInfer(c, model)
+	a.infer(c, model)
 }
 
-func (a *APIs) doInfer(c *gin.Context, model string) {
+func (a *APIs) infer(c *gin.Context, model string) {
 	file, header, err := c.Request.FormFile("image")
 	if err != nil {
 		Error(c, http.StatusBadRequest, err)
@@ -121,7 +121,19 @@ func (a *APIs) DeleteModel(c *gin.Context) {
 
 // UploadImages image 업로드
 func (a *APIs) UploadImages(c *gin.Context) {
-	if result, err := a.M.Save(c); err != nil {
+	if result, err := a.M.SaveImages(c); err != nil {
+		Error(c, http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, result)
+	}
+}
+
+// ListImages image 반환
+func (a *APIs) ListImages(c *gin.Context) {
+	tag := c.Query("tag")
+	category := c.Query("category")
+
+	if result, err := a.M.ListImages(tag, category); err != nil {
 		Error(c, http.StatusBadRequest, err)
 	} else {
 		c.JSON(http.StatusOK, result)

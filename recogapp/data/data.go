@@ -29,12 +29,12 @@ type Manager struct {
 // SaveImages image 저장
 func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 	var (
-		tag      string
+		subject  string
 		category string
 	)
 
 	result := map[string]interface{}{
-		"tag":        "",
+		"subject":    "",
 		"category":   "",
 		"path":       "",
 		"total":      0,
@@ -47,17 +47,17 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 		return result, err
 	}
 
-	if tag = c.PostForm("tag"); tag == "" {
-		return result, errors.New("Empty \"tag\"")
+	if subject = c.PostForm("subject"); subject == "" {
+		return result, errors.New("Empty \"subject\"")
 	}
-	result["tag"] = tag
+	result["subject"] = subject
 
 	if category = c.PostForm("category"); category == "" {
 		return result, errors.New("Empty \"category\"")
 	}
 	result["category"] = category
 
-	filePath := path.Join(rootImagePath, tag, category)
+	filePath := path.Join(rootImagePath, subject, category)
 	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
 		return result, err
 	}
@@ -80,7 +80,7 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 		}
 
 		item := db.Item{
-			Tag:         tag,
+			Subject:     subject,
 			Category:    category,
 			OrgFilename: orgFileName,
 			Filename:    fileName,
@@ -105,8 +105,8 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 }
 
 // ListImages image 목록 반환
-func (dm *Manager) ListImages(tag, category string) (interface{}, error) {
-	infos, items, err := dm.Conn.List(tag, category)
+func (dm *Manager) ListImages(subject, category string) (interface{}, error) {
+	infos, items, err := dm.Conn.List(subject, category)
 	if err != nil {
 		return nil, err
 	}

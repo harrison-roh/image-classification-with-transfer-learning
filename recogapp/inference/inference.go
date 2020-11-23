@@ -159,7 +159,7 @@ func (i *Inference) putModel(m *iModel) {
 // CreateRequest TODO
 type CreateRequest struct {
 	// Image label for this model
-	Tag string `json:"tag"`
+	Subject string `json:"subject"`
 
 	// Model meta information
 	ModelPath   string `json:"modelPath"`
@@ -172,7 +172,7 @@ type CreateRequest struct {
 }
 
 // CreateModel TODO
-func (i *Inference) CreateModel(newModel, tag, desc string, trial bool) (map[string]interface{}, error) {
+func (i *Inference) CreateModel(newModel, subject, desc string, trial bool) (map[string]interface{}, error) {
 	modelDir := fmt.Sprintf("%s-%s", newModel, uuid.New().String()[:8])
 	modelPath := path.Join(i.modelsPath, modelDir)
 
@@ -190,7 +190,7 @@ func (i *Inference) CreateModel(newModel, tag, desc string, trial bool) (map[str
 	configFile := path.Join(modelPath, "config.yaml")
 
 	req := CreateRequest{
-		Tag:         tag,
+		Subject:     subject,
 		ModelPath:   modelPath,
 		ConfigFile:  configFile,
 		Description: desc,

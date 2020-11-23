@@ -41,7 +41,7 @@ func (nt *NullTime) MarshalJSON() ([]byte, error) {
 
 // Item 데이터 항목
 type Item struct {
-	Tag         string    `json:"tag"`
+	Subject     string    `json:"subject"`
 	Category    string    `json:"category"`
 	OrgFilename string    `json:"orgfilename"`
 	Filename    string    `json:"filename,omitempty"`
@@ -52,7 +52,7 @@ type Item struct {
 
 func (conn *DBconn) createTable() error {
 	if _, err := conn.db.Exec(fmt.Sprintf(`CREATE TABLE %s (
-		tag CHAR(20) NOT NULL,
+		subject CHAR(20) NOT NULL,
 		category CHAR(20) NOT NULL,
 		orgfilename Char(20) NOT NULL,
 		filename Char(20) NOT NULL,
@@ -87,14 +87,14 @@ func (conn *DBconn) Insert(item Item) error {
 	createAt := item.CreateAt.Format(time.RFC3339)
 
 	_, err := conn.db.Exec(fmt.Sprintf(`INSERT INTO %s (
-		tag,
+		subject,
 		category,
 		orgfilename,
 		filename,
 		format,
 		path,
 		createAt) value (?, ?, ?, ?, ?, ?, ?);`, conn.TableName),
-		item.Tag, item.Category, item.OrgFilename, item.Filename,
+		item.Subject, item.Category, item.OrgFilename, item.Filename,
 		item.FileFormat, item.FilePath, createAt,
 	)
 
@@ -102,13 +102,13 @@ func (conn *DBconn) Insert(item Item) error {
 }
 
 // List entry 반환
-func (conn *DBconn) List(tag, category string) (interface{}, interface{}, error) {
-	query := fmt.Sprintf("SELECT tag,category,orgfilename,createAt FROM %s", conn.TableName)
-	if tag != "" {
-		query = fmt.Sprintf("%s WHERE tag='%s'", query, tag)
+func (conn *DBconn) List(subject, category string) (interface{}, interface{}, error) {
+	query := fmt.Sprintf("SELECT subject,category,orgfilename,createAt FROM %s", conn.TableName)
+	if subject != "" {
+		query = fmt.Sprintf("%s WHERE subject='%s'", query, subject)
 	}
 	if category != "" {
-		if tag != "" {
+		if subject != "" {
 			query = fmt.Sprintf("%s AND category='%s'", query, category)
 		} else {
 			query = fmt.Sprintf("%s WHERE category='%s'", query, category)
@@ -131,7 +131,7 @@ func (conn *DBconn) List(tag, category string) (interface{}, interface{}, error)
 		total++
 		item := Item{}
 		if err := rows.Scan(
-			&item.Tag,
+			&item.Subject,
 			&item.Category,
 			&item.OrgFilename,
 			&item.CreateAt); err != nil {

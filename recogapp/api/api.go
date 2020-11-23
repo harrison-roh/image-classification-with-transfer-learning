@@ -90,7 +90,7 @@ func (a *APIs) CreateModel(c *gin.Context) {
 		Error(c, http.StatusBadRequest, errors.New("Empty model name"))
 	}
 
-	tag := c.PostForm("tag")
+	subject := c.PostForm("subject")
 	desc := c.PostForm("desc")
 	trial := c.PostForm("trial")
 	isTrial, err := strconv.ParseBool(trial)
@@ -98,7 +98,7 @@ func (a *APIs) CreateModel(c *gin.Context) {
 		isTrial = false
 	}
 
-	if res, err := a.I.CreateModel(model, tag, desc, isTrial); err != nil {
+	if res, err := a.I.CreateModel(model, subject, desc, isTrial); err != nil {
 		Error(c, http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, res)
@@ -130,10 +130,10 @@ func (a *APIs) UploadImages(c *gin.Context) {
 
 // ListImages image 반환
 func (a *APIs) ListImages(c *gin.Context) {
-	tag := c.Query("tag")
+	subject := c.Query("subject")
 	category := c.Query("category")
 
-	if result, err := a.M.ListImages(tag, category); err != nil {
+	if result, err := a.M.ListImages(subject, category); err != nil {
 		Error(c, http.StatusBadRequest, err)
 	} else {
 		c.JSON(http.StatusOK, result)

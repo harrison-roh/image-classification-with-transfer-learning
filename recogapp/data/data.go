@@ -33,14 +33,7 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 		category string
 	)
 
-	result := map[string]interface{}{
-		"subject":    "",
-		"category":   "",
-		"path":       "",
-		"total":      0,
-		"successful": 0,
-		"failed":     0,
-	}
+	result := make(map[string]interface{})
 
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -61,11 +54,11 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
 		return result, err
 	}
-	result["path"] = filePath
 
 	total := 0
 	nrSuccessful := 0
 	nrFailed := 0
+	errors := make([]map[string]interface{}, 0)
 	for _, image := range form.File["images[]"] {
 		total++
 
@@ -74,7 +67,10 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 		fileFormat := strings.ToLower(strings.Split(orgFileName, ".")[1])
 
 		if err := c.SaveUploadedFile(image, path.Join(filePath, fileName)); err != nil {
-			log.Print(err)
+			errors = append(errors, map[string]interface{}{
+				"file":  orgFileName,
+				"error": err.Error(),
+			})
 			nrFailed++
 			continue
 		}
@@ -90,7 +86,13 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 		}
 
 		if err := dm.Conn.Insert(item); err != nil {
-			log.Print(err)
+			if err := os.Remove(path.Join(filePath, fileName)); err != nil {
+				log.Print(err)
+			}
+			errors = append(errors, map[string]interface{}{
+				"file":  orgFileName,
+				"error": err.Error(),
+			})
 			nrFailed++
 		} else {
 			nrSuccessful++
@@ -100,6 +102,7 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 	result["total"] = total
 	result["failed"] = nrFailed
 	result["successful"] = nrSuccessful
+	result["errors"] = errors
 
 	return result, nil
 }

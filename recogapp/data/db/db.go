@@ -54,8 +54,8 @@ func (conn *DBconn) createTable() error {
 	if _, err := conn.db.Exec(fmt.Sprintf(`CREATE TABLE %s (
 		subject CHAR(20) NOT NULL,
 		category CHAR(20) NOT NULL,
-		orgfilename Char(20) NOT NULL,
-		filename Char(20) NOT NULL,
+		orgfilename Char(60) NOT NULL,
+		filename Char(60) NOT NULL,
 		format Char(10) NOT NULL,
 		path VARCHAR(80) NOT NULL,
 		createAt DATETIME NOT NULL);`, conn.TableName)); err != nil {
@@ -101,9 +101,9 @@ func (conn *DBconn) Insert(item Item) error {
 	return err
 }
 
-// List entry 반환
-func (conn *DBconn) List(subject, category string) (interface{}, interface{}, error) {
-	query := fmt.Sprintf("SELECT subject,category,orgfilename,createAt FROM %s", conn.TableName)
+// Get entry 반환
+func (conn *DBconn) Get(subject, category string) (interface{}, interface{}, error) {
+	query := fmt.Sprintf("SELECT subject,category,filename,orgfilename,createAt FROM %s", conn.TableName)
 	if subject != "" {
 		query = fmt.Sprintf("%s WHERE subject='%s'", query, subject)
 	}
@@ -133,6 +133,7 @@ func (conn *DBconn) List(subject, category string) (interface{}, interface{}, er
 		if err := rows.Scan(
 			&item.Subject,
 			&item.Category,
+			&item.Filename,
 			&item.OrgFilename,
 			&item.CreateAt); err != nil {
 			failed++

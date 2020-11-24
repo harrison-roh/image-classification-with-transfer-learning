@@ -106,7 +106,7 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 
 // ListImages image 목록 반환
 func (dm *Manager) ListImages(subject, category string) (interface{}, error) {
-	infos, items, err := dm.Conn.List(subject, category)
+	infos, items, err := dm.Conn.Get(subject, category)
 	if err != nil {
 		return nil, err
 	}

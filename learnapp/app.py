@@ -21,12 +21,6 @@ LABELS_FILE = "lables"
 
 IMAGE_SIZE = 224
 
-DB_HOST = "recog-db"
-DB_USER = "user1"
-DB_PASSWORD = "password1"
-DB_NAME = "recog_image_db"
-TABLE_NAME = "image_tab"
-
 
 @app.route("/model/<model_name>", methods=["POST"])
 def create_model(model_name):
@@ -39,10 +33,10 @@ def create_model(model_name):
     if not ok:
         return error_response(400, s)
 
-    subject = params.get("subject", "")
+    image_path = params.get("imagePath", "")
     trial = params.get("trial", False)
 
-    if subject != "" or trial:
+    if image_path != "" or trial:
         return create_transfer_learned_model(model_name, params)
     else:
         return create_base_model(model_name, params)
@@ -172,31 +166,18 @@ def create_transfer_learned_model(model_name, params):
 
 
 def practical_trasnfer_learned_model(base_model, params):
-    image_root_path = params.get("subjectImagePath", "")
-    subject = params.get("subject", "")
+    image_path = params.get("imagePath", "")
 
-    conn = pymysql.connect(
-        host=DB_HOST, user=DB_USER, password=DB_PASSWORD, db=DB_NAME, charset="utf8"
-    )
-    curs = conn.cursor(pymysql.cursors.DictCursor)
+    dirs = []
+    for file in os.listdir(image_path):
+        path = os.path.join(image_path, file)
+        if os.path.isdir(path):
+            dirs.append(path)
 
-    query = f"SELECT category FROM {TABLE_NAME} WHERE subject=%s GROUP BY category"
-    curs.execute(query, (subject))
-
-    tmp_labels = []
-    for row in curs.fetchall():
-        tmp_labels.append(row["category"])
-    conn.close()
-
-    if len(tmp_labels) == 2:
-        classification = BINARY_CLASS
-        label_mode = "binary"
-    else:
-        classification = MULTI_CLASS
-        label_mode = "categorical"
+    label_mode = "binary" if len(dirs) == 2 else "categorical"
 
     train_ds = tf.keras.preprocessing.image_dataset_from_directory(
-        image_root_path,
+        image_path,
         label_mode=label_mode,
         validation_split=0.2,
         subset="training",
@@ -205,7 +186,7 @@ def practical_trasnfer_learned_model(base_model, params):
     )
 
     validation_ds = tf.keras.preprocessing.image_dataset_from_directory(
-        image_root_path,
+        image_path,
         label_mode=label_mode,
         validation_split=0.2,
         subset="validation",

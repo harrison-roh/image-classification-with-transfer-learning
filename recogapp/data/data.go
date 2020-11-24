@@ -11,14 +11,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/constants"
 	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/data/db"
 )
 
 const (
-	rootImagePath string = "/recog/images"
-	tableName     string = "image_tab"
-	driverName    string = "mysql"
-	connInfo      string = "user1:password1@tcp(db:3306)/recog_image_db?parseTime=true"
+	tableName  string = "image_tab"
+	driverName string = "mysql"
+	connInfo   string = "user1:password1@tcp(db:3306)/recog_image_db?parseTime=true"
 )
 
 // Manager 이미지 데이터를 관리
@@ -57,7 +57,7 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 	}
 	result["category"] = category
 
-	filePath := path.Join(rootImagePath, subject, category)
+	filePath := path.Join(constants.ImagesPath, subject, category)
 	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
 		return result, err
 	}

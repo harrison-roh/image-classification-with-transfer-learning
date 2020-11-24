@@ -11,13 +11,11 @@ import (
 )
 
 func main() {
-	modelsPath := flag.String("models", "/recog/models", "Model path for inference")
-	userModelPath := flag.String("usermodel", "", "User model path for inference")
+	userModelPath := flag.String("usermodel", "", "Path for user inference model")
 	learnHost := flag.String("learnhost", "learnapp:18090", "Model learning host")
 	flag.Parse()
 
 	i, err := inference.New(inference.Config{
-		ModelsPath:    *modelsPath,
 		UserModelPath: *userModelPath,
 		LHost:         *learnHost,
 	})

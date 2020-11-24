@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 
 	"github.com/google/uuid"
+	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/constants"
 	tf "github.com/tensorflow/tensorflow/tensorflow/go"
 	"github.com/tensorflow/tensorflow/tensorflow/go/op"
 	"gopkg.in/yaml.v2"
@@ -23,7 +24,6 @@ import (
 
 // Config 이미지 추론 모델 생성 설정정보
 type Config struct {
-	ModelsPath    string
 	UserModelPath string
 	LHost         string
 }
@@ -156,10 +156,10 @@ func (i *Inference) putModel(m *iModel) {
 	atomic.AddInt32(&m.refCount, -1)
 }
 
-// CreateRequest TODO
+// CreateRequest 모델 생성 요청 정보
 type CreateRequest struct {
-	// Image label for this model
-	Subject string `json:"subject"`
+	// Image root path for training
+	ImagePath string `json:"imagePath"`
 
 	// Model meta information
 	ModelPath   string `json:"modelPath"`
@@ -171,7 +171,7 @@ type CreateRequest struct {
 	Trial bool `json:"trial"`
 }
 
-// CreateModel TODO
+// CreateModel 추론모델 생성
 func (i *Inference) CreateModel(newModel, subject, desc string, trial bool) (map[string]interface{}, error) {
 	modelDir := fmt.Sprintf("%s-%s", newModel, uuid.New().String()[:8])
 	modelPath := path.Join(i.modelsPath, modelDir)
@@ -188,9 +188,10 @@ func (i *Inference) CreateModel(newModel, subject, desc string, trial bool) (map
 	i.mutex.Unlock()
 
 	configFile := path.Join(modelPath, "config.yaml")
+	imagePath := path.Join(constants.ImagesPath, subject)
 
 	req := CreateRequest{
-		Subject:     subject,
+		ImagePath:   imagePath,
 		ModelPath:   modelPath,
 		ConfigFile:  configFile,
 		Description: desc,
@@ -586,7 +587,7 @@ func (s sortByProb) Less(i, j int) bool {
 func New(c Config) (i *Inference, err error) {
 	i = &Inference{
 		models:        make(map[string]*iModel),
-		modelsPath:    c.ModelsPath,
+		modelsPath:    constants.ModelsPath,
 		userModelPath: c.UserModelPath,
 		lHost:         c.LHost,
 	}

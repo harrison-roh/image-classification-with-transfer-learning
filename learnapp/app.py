@@ -210,7 +210,7 @@ def practical_trasnfer_learned_model(base_model, params):
 def trial_trasnfer_learned_model(base_model, params):
     (raw_train, raw_validation), metadata = tfds.load(
         "cats_vs_dogs",
-        split=["train[:80%]", "train[80%:]"],
+        split=["train[:30%]", "train[80%:]"],
         with_info=True,
         as_supervised=True,
     )
@@ -291,7 +291,7 @@ def train_and_evaluate_model(model, train_batches, validation_batches, epochs):
     val_acc = history.history["val_accuracy"]
 
     result = {
-        "epoches": epochs,
+        "epochs": epochs,
         "initLoss": loss0,
         "initAccuracy": acc0,
         "trainLoss": loss,

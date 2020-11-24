@@ -89,7 +89,12 @@ func (i *Inference) init() error {
 
 	if len(i.models) == 0 {
 		// 아무런 추론 모델이 없는 경우 기본 모델을 생성
-		result, err := i.CreateModel("default", "", "Default Model", false)
+		result, err := i.CreateModel(
+			"default",
+			"",
+			"Default Model",
+			constants.TrainEpochs,
+			false)
 		if err != nil {
 			return err
 		}
@@ -172,7 +177,7 @@ type CreateRequest struct {
 }
 
 // CreateModel 추론모델 생성
-func (i *Inference) CreateModel(newModel, subject, desc string, trial bool) (map[string]interface{}, error) {
+func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, trial bool) (map[string]interface{}, error) {
 	modelDir := fmt.Sprintf("%s-%s", newModel, uuid.New().String()[:8])
 	modelPath := path.Join(i.modelsPath, modelDir)
 
@@ -188,14 +193,17 @@ func (i *Inference) CreateModel(newModel, subject, desc string, trial bool) (map
 	i.mutex.Unlock()
 
 	configFile := path.Join(modelPath, "config.yaml")
-	imagePath := path.Join(constants.ImagesPath, subject)
+	imagePath := ""
+	if subject != "" {
+		imagePath = path.Join(constants.ImagesPath, subject)
+	}
 
 	req := CreateRequest{
 		ImagePath:   imagePath,
 		ModelPath:   modelPath,
 		ConfigFile:  configFile,
 		Description: desc,
-		Epochs:      1,
+		Epochs:      epochs,
 		Trial:       trial,
 	}
 

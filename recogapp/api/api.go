@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/constants"
 	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/data"
 	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/inference"
 )
@@ -97,8 +98,13 @@ func (a *APIs) CreateModel(c *gin.Context) {
 	if err != nil {
 		isTrial = false
 	}
+	epochs := c.PostForm("epochs")
+	nrEpochs, err := strconv.Atoi(epochs)
+	if err != nil {
+		nrEpochs = constants.TrainEpochs
+	}
 
-	if res, err := a.I.CreateModel(model, subject, desc, isTrial); err != nil {
+	if res, err := a.I.CreateModel(model, subject, desc, nrEpochs, isTrial); err != nil {
 		Error(c, http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, res)

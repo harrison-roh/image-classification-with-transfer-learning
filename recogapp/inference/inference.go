@@ -31,7 +31,7 @@ type Config struct {
 // Inference 이미지 추론 모델 관리
 type Inference struct {
 	models        map[string]*iModel
-	mutex         sync.RWMutex
+	rwMutex       sync.RWMutex
 	modelsPath    string
 	userModelPath string
 
@@ -182,15 +182,15 @@ func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, tria
 	modelPath := path.Join(i.modelsPath, modelDir)
 
 	m := getNewModel(newModel, modelPath)
-	i.mutex.Lock()
+	i.rwMutex.Lock()
 	// 새로운 모델 생성 및 로드 전 슬롯 선점
 	if err := i.addModel(m); err != nil {
-		i.mutex.Unlock()
+		i.rwMutex.Unlock()
 		return nil, err
 	}
 	// 모델 로드가 완료되기전 삭제가 되지 않도록 참조카운터를 증가
 	i.getModel(newModel)
-	i.mutex.Unlock()
+	i.rwMutex.Unlock()
 
 	configFile := path.Join(modelPath, "config.yaml")
 	imagePath := ""
@@ -213,25 +213,25 @@ func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, tria
 	url := fmt.Sprintf("http://%s/model/%s", i.lHost, newModel)
 	res, err := http.Post(url, "application/json", data)
 	if err != nil {
-		i.mutex.Lock()
+		i.rwMutex.Lock()
 		i.delModelUncond(m)
-		i.mutex.Unlock()
+		i.rwMutex.Unlock()
 		return nil, err
 	}
 	defer res.Body.Close()
 
 	var response map[string]interface{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		i.mutex.Lock()
+		i.rwMutex.Lock()
 		i.delModelUncond(m)
-		i.mutex.Unlock()
+		i.rwMutex.Unlock()
 		return nil, err
 	}
 
 	if err := loadModel(m); err != nil {
-		i.mutex.Lock()
+		i.rwMutex.Lock()
 		i.delModelUncond(m)
-		i.mutex.Unlock()
+		i.rwMutex.Unlock()
 		return nil, err
 	}
 
@@ -241,16 +241,16 @@ func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, tria
 
 // DeleteModel 모델 삭제
 func (i *Inference) DeleteModel(model string) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	i.rwMutex.Lock()
+	defer i.rwMutex.Unlock()
 
 	return i.delModel(model)
 }
 
 // GetModels 이미지 추론 모델 목록 반환
 func (i *Inference) GetModels() []string {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
+	i.rwMutex.RLock()
+	defer i.rwMutex.RUnlock()
 
 	var models []string
 	for model := range i.models {
@@ -262,9 +262,9 @@ func (i *Inference) GetModels() []string {
 
 // GetModel 이미지 추론 모델 정보 반환
 func (i *Inference) GetModel(model string) map[string]interface{} {
-	i.mutex.RLock()
+	i.rwMutex.RLock()
 	m := i.getModel(model)
-	i.mutex.RUnlock()
+	i.rwMutex.RUnlock()
 
 	if m == nil {
 		return nil
@@ -297,9 +297,9 @@ func (i *Inference) GetModel(model string) map[string]interface{} {
 
 // Infer 추론
 func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, error) {
-	i.mutex.RLock()
+	i.rwMutex.RLock()
 	m := i.getModel(model)
-	i.mutex.RUnlock()
+	i.rwMutex.RUnlock()
 
 	if m == nil {
 		return nil, fmt.Errorf("No such model: %s", model)

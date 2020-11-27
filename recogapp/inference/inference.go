@@ -476,15 +476,15 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 		return imageDecode{}, fmt.Errorf("Unsupported image format: %s", format)
 	}
 
-	output := op.Div(scope,
-		op.Sub(scope,
-			op.ResizeBilinear(scope,
-				op.ExpandDims(scope,
-					op.Cast(scope, decode, tf.Float),
-					op.Const(scope.SubScope("make_batch"), int32(0))),
-				op.Const(scope.SubScope("size"), m.inputShape)),
-			op.Const(scope.SubScope("mean"), float32(117))),
-		op.Const(scope.SubScope("scale"), float32(1)))
+	// [0, 255]의 이미지값을 [-1, 1]로 조정: (image / 127.5) - 1
+	normalizer := op.Sub(scope,
+		op.Div(scope, op.Cast(scope, decode, tf.Float), op.Const(scope.SubScope("scale"), float32(127.5))),
+		op.Const(scope.SubScope("offset"), float32(1)))
+
+	// 임의의 크기(height, width) 이미지를 입력 크기(inputShape,)로 조정
+	output := op.ResizeBilinear(scope,
+		op.ExpandDims(scope, normalizer, op.Const(scope.SubScope("batch"), int32(0))),
+		op.Const(scope.SubScope("resize"), m.inputShape))
 
 	if graph, err = scope.Finalize(); err != nil {
 		return imageDecode{}, err

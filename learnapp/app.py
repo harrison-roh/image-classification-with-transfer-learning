@@ -206,8 +206,8 @@ def practical_trasnfer_learned_model(base_model, params):
 
     labels = train_ds.class_names
 
-    train = train_ds.map(transform_format)
-    validation = validation_ds.map(transform_format)
+    train = train_ds.map(normalize_image)
+    validation = validation_ds.map(normalize_image)
 
     model, classification = build_and_compile_model(base_model, train, len(labels))
 
@@ -230,8 +230,8 @@ def trial_trasnfer_learned_model(base_model, params):
     for i in range(metadata.features["label"].num_classes):
         labels.append(get_label_name(i))
 
-    train = raw_train.map(transform_format)
-    validation = raw_validation.map(transform_format)
+    train = raw_train.map(normalize_and_resize_image)
+    validation = raw_validation.map(normalize_and_resize_image)
 
     train_batches = train.shuffle(1000).batch(32)
     validation_batches = validation.shuffle(1000).batch(32)
@@ -313,7 +313,13 @@ def train_and_evaluate_model(model, train_batches, validation_batches, epochs):
     return result
 
 
-def transform_format(image, label):
+def normalize_image(image, label):
+    image = tf.cast(image, tf.float32)
+    image = (image / 127.5) - 1
+    return image, label
+
+
+def normalize_and_resize_image(image, label):
     image = tf.cast(image, tf.float32)
     image = (image / 127.5) - 1
     image = tf.image.resize(image, (IMAGE_SIZE, IMAGE_SIZE))

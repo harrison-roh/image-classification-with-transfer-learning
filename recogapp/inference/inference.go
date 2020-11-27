@@ -318,6 +318,9 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 	if m.cfg.Classification == binaryClass {
 		return classifyBinary(result[0], m.labels)
 	} else if m.cfg.Classification == multiClass {
+		if len(result) != m.nrLables {
+			return nil, fmt.Errorf("The number of correct(%d) and predicted(%d) labels does not match", m.nrLables, len(result))
+		}
 		return classifyMulti(result, m.labels, k)
 	}
 
@@ -345,10 +348,6 @@ func classifyBinary(prob float32, labels []string) ([]InferLabel, error) {
 func classifyMulti(probs []float32, labels []string, k int) ([]InferLabel, error) {
 	var infers []InferLabel
 	for idx, prob := range probs {
-		if idx >= len(labels) {
-			break
-		}
-
 		infers = append(infers, InferLabel{
 			Prob:  prob,
 			Label: labels[idx],

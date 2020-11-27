@@ -74,12 +74,22 @@ def create_base_model(model_name, params):
     model = get_base_model(False)
     model.save(model_path)
 
+    tmp_labels_file = f"{LABELS_FILE}.tmp"
+
     labels_path = tf.keras.utils.get_file(
-        LABELS_FILE,
+        tmp_labels_file,
         "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt",
         cache_subdir="",
         cache_dir=model_path,
     )
+    # https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a#gistcomment-2719675
+    # 불필요한 첫번째 label(`background`)를 제거
+    with open(os.path.join(model_path, LABELS_FILE), "w") as ofp:
+        with open(os.path.join(model_path, tmp_labels_file)) as ifp:
+            labels = ifp.readlines()
+        os.remove(os.path.join(model_path, tmp_labels_file))
+        for label in labels[1:]:
+            ofp.write(f"{label}")
 
     # signature는 함수를 구분하며, 기본 함수 signature를 이용
     input_name = (

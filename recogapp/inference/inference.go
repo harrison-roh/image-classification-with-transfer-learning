@@ -383,6 +383,7 @@ type iModel struct {
 	inputShape []int32
 
 	imageDecoder map[string]imageDecode
+	idMutex      sync.Mutex
 
 	nrLables int
 	labels   []string
@@ -455,15 +456,25 @@ func (m *iModel) normInputImage(image, format string) (*tf.Tensor, error) {
 
 func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 	var (
+		decoder imageDecode
 		decode  tf.Output
 		session *tf.Session
 		graph   *tf.Graph
+		ok      bool
 		err     error
 	)
 
-	if decoder, ok := m.imageDecoder[format]; ok {
+	// 생성 된 디코더는 공용으로 사용되기 때문에,
+	// 최초 생성시 lock을 잡도록 하고 이 후 사용할땐 lock 없이 접근
+	decoder, ok = m.imageDecoder[format]
+	if ok {
 		return decoder, nil
 	}
+
+	m.idMutex.Lock()
+	defer m.idMutex.Unlock()
+
+	decoder, ok = m.imageDecoder[format]
 
 	scope := op.NewScope()
 	input := op.Placeholder(scope, tf.String)
@@ -473,9 +484,10 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 	} else if format == "png" {
 		decode = op.DecodePng(scope, input, op.DecodePngChannels(3))
 	} else {
-		return imageDecode{}, fmt.Errorf("Unsupported image format: %s", format)
+		return decoder, fmt.Errorf("Unsupported image format: %s", format)
 	}
 
+	// TODO 모델에 따라 이미지값 범위 조정
 	// [0, 255]의 이미지값을 [-1, 1]로 조정: (image / 127.5) - 1
 	normalizer := op.Sub(scope,
 		op.Div(scope, op.Cast(scope, decode, tf.Float), op.Const(scope.SubScope("scale"), float32(127.5))),
@@ -487,14 +499,14 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 		op.Const(scope.SubScope("resize"), m.inputShape))
 
 	if graph, err = scope.Finalize(); err != nil {
-		return imageDecode{}, err
+		return decoder, err
 	}
 
 	if session, err = tf.NewSession(graph, nil); err != nil {
-		return imageDecode{}, err
+		return decoder, err
 	}
 
-	decoder := imageDecode{
+	decoder = imageDecode{
 		graph:   graph,
 		input:   input,
 		output:  output,

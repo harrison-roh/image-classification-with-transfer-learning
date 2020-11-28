@@ -109,12 +109,12 @@ func (i *Inference) addModel(newM *iModel) error {
 		return errors.New("Empty model name")
 	}
 
-	for model, m := range i.models {
-		if model == newM.name || m.name == newM.name {
-			return fmt.Errorf("Duplicated model: %s", newM.name)
-		} else if m.modelPath == newM.modelPath {
-			return fmt.Errorf("Duplicated model path: %s", newM.modelPath)
-		}
+	if _, exists := i.models[newM.name]; exists {
+		return fmt.Errorf("Duplicated model: %s", newM.name)
+	}
+
+	if _, err := os.Stat(newM.modelPath); !os.IsNotExist(err) {
+		return fmt.Errorf("Duplicated model path: %s", newM.modelPath)
 	}
 
 	i.models[newM.name] = newM

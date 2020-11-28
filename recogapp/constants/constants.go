@@ -6,5 +6,6 @@ const (
 	ModelsPath string = "/recog/models"
 	ImagesPath string = "/recog/images"
 
-	TrainEpochs int = 10
+	DefaultMultiClassMax int = 5
+	TrainEpochs          int = 10
 )

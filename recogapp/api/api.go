@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/constants"
@@ -62,24 +63,26 @@ func (a *APIs) infer(c *gin.Context, model string) {
 	var (
 		image bytes.Buffer
 		bytes int64
+		n     int64
 	)
 
-	if n, err := io.Copy(&image, file); err != nil {
+	if n, err = io.Copy(&image, file); err != nil {
 		Error(c, http.StatusBadRequest, err)
 		return
-	} else {
-		bytes = n
 	}
+	bytes = n
 
 	format := strings.Split(header.Filename, ".")[1]
 
+	t0 := time.Now()
 	if infers, err := a.I.Infer(model, image.String(), format, 5); err == nil {
+		elapsed := time.Since(t0)
 		c.JSON(http.StatusOK, gin.H{
-			"image":          header.Filename,
-			"format":         format,
-			"bytes":          bytes,
-			"top label":      infers[0].Label,
-			"top probabilty": infers[0].Prob,
+			"file":        header.Filename,
+			"format":      format,
+			"bytes":       bytes,
+			"inference":   infers,
+			"elapsed(ms)": elapsed.Milliseconds(),
 		})
 	} else {
 		Error(c, http.StatusBadRequest, err)

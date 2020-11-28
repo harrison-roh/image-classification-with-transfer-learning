@@ -340,6 +340,8 @@ func classifyBinary(prob float32, labels []string) ([]InferLabel, error) {
 	idx = 0
 	if prob >= 0.5 {
 		idx = 1
+	} else {
+		prob = 1 - prob
 	}
 
 	infers = make([]InferLabel, 1)
@@ -360,7 +362,7 @@ func classifyMulti(probs []float32, labels []string, k int) ([]InferLabel, error
 	sort.Sort(sortByProb(infers))
 
 	if k <= 0 {
-		k = 5
+		k = constants.DefaultMultiClassMax
 	}
 
 	if k > len(infers) {
@@ -591,8 +593,8 @@ func loadModel(m *iModel) error {
 
 // InferLabel 이미지 추론 항목
 type InferLabel struct {
-	Prob  float32
-	Label string
+	Prob  float32 `json:"probability"`
+	Label string  `json:"label"`
 }
 
 type sortByProb []InferLabel

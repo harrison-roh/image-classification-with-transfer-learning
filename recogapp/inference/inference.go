@@ -90,7 +90,7 @@ func (i *Inference) init() error {
 	if len(i.models) == 0 {
 		// 아무런 추론 모델이 없는 경우 기본 모델을 생성
 		result, err := i.CreateModel(
-			"default",
+			constants.DefaultModelName,
 			"",
 			"Default Model",
 			constants.TrainEpochs,

@@ -42,7 +42,7 @@ func (a *APIs) ShowModel(c *gin.Context) {
 
 // InferDefault 기본 모델을 이용한 추론
 func (a *APIs) InferDefault(c *gin.Context) {
-	a.infer(c, "default")
+	a.infer(c, constants.DefaultModelName)
 }
 
 // InferWithModel 모델을 이용한 추론

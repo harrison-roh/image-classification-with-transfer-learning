@@ -475,6 +475,9 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 	defer m.idMutex.Unlock()
 
 	decoder, ok = m.imageDecoder[format]
+	if ok {
+		return decoder, nil
+	}
 
 	scope := op.NewScope()
 	input := op.Placeholder(scope, tf.String)

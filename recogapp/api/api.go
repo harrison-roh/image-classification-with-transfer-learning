@@ -55,6 +55,7 @@ func (a *APIs) infer(c *gin.Context, model string) {
 	file, header, err := c.Request.FormFile("image")
 	if err != nil {
 		Error(c, http.StatusBadRequest, err)
+		return
 	}
 	defer file.Close()
 
@@ -65,6 +66,7 @@ func (a *APIs) infer(c *gin.Context, model string) {
 
 	if n, err := io.Copy(&image, file); err != nil {
 		Error(c, http.StatusBadRequest, err)
+		return
 	} else {
 		bytes = n
 	}
@@ -89,6 +91,7 @@ func (a *APIs) CreateModel(c *gin.Context) {
 	model := c.Param("model")
 	if model == "" {
 		Error(c, http.StatusBadRequest, errors.New("Empty model name"))
+		return
 	}
 
 	subject := c.PostForm("subject")
@@ -116,6 +119,7 @@ func (a *APIs) DeleteModel(c *gin.Context) {
 	model := c.Param("model")
 	if model == "" {
 		Error(c, http.StatusBadRequest, errors.New("Empty model name"))
+		return
 	}
 
 	if err := a.I.DeleteModel(model); err != nil {
@@ -127,7 +131,27 @@ func (a *APIs) DeleteModel(c *gin.Context) {
 
 // UploadImages image 업로드
 func (a *APIs) UploadImages(c *gin.Context) {
-	if result, err := a.M.SaveImages(c); err != nil {
+	var (
+		subject  string
+		category string
+	)
+	if subject = c.PostForm("subject"); subject == "" {
+		Error(c, http.StatusBadRequest, errors.New("Empty `subject`"))
+		return
+	}
+	if category = c.PostForm("category"); category == "" {
+		Error(c, http.StatusBadRequest, errors.New("Empty `category`"))
+		return
+	}
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		Error(c, http.StatusBadRequest, err)
+		return
+	}
+	images := form.File["images[]"]
+
+	if result, err := a.M.SaveImages(subject, category, images, c.SaveUploadedFile); err != nil {
 		Error(c, http.StatusBadRequest, err)
 	} else {
 		c.JSON(http.StatusOK, result)

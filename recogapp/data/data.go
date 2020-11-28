@@ -1,15 +1,15 @@
 package data
 
 import (
-	"errors"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/constants"
 	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/data/db"
@@ -26,28 +26,31 @@ type Manager struct {
 	Conn *db.DBconn
 }
 
-// SaveImages image 저장
-func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
-	var (
-		subject  string
-		category string
-	)
+type saveFunc func(*multipart.FileHeader, string) error
 
+func saveImage(file *multipart.FileHeader, dst string) error {
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, src)
+
+	return nil
+}
+
+// SaveImages image 저장
+func (dm *Manager) SaveImages(subject, category string, images []*multipart.FileHeader, f saveFunc) (interface{}, error) {
 	result := make(map[string]interface{})
 
-	form, err := c.MultipartForm()
-	if err != nil {
-		return result, err
-	}
-
-	if subject = c.PostForm("subject"); subject == "" {
-		return result, errors.New("Empty \"subject\"")
-	}
 	result["subject"] = subject
-
-	if category = c.PostForm("category"); category == "" {
-		return result, errors.New("Empty \"category\"")
-	}
 	result["category"] = category
 
 	filePath := path.Join(constants.ImagesPath, subject, category)
@@ -55,18 +58,22 @@ func (dm *Manager) SaveImages(c *gin.Context) (interface{}, error) {
 		return result, err
 	}
 
+	if f == nil {
+		f = saveImage
+	}
+
 	total := 0
 	nrSuccessful := 0
 	nrFailed := 0
 	errors := make([]map[string]interface{}, 0)
-	for _, image := range form.File["images[]"] {
+	for _, image := range images {
 		total++
 
 		orgFileName := image.Filename
 		fileName := fmt.Sprintf("%s-%s", uuid.New().String()[:8], orgFileName)
 		fileFormat := strings.ToLower(strings.Split(orgFileName, ".")[1])
 
-		if err := c.SaveUploadedFile(image, path.Join(filePath, fileName)); err != nil {
+		if err := f(image, path.Join(filePath, fileName)); err != nil {
 			errors = append(errors, map[string]interface{}{
 				"file":  orgFileName,
 				"error": err.Error(),

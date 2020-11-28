@@ -66,7 +66,9 @@ func (i *Inference) loadModels() error {
 			log.Printf("Fail to load model(%s): %s", modelPath, err)
 			i.delModelUncond(m)
 		} else {
-			i.addModel(m)
+			if err := i.addModel(m); err != nil {
+				log.Print(err)
+			}
 		}
 	}
 
@@ -75,7 +77,9 @@ func (i *Inference) loadModels() error {
 		if err := loadModel(m); err != nil {
 			log.Printf("Fail to load user model(%s): %s", i.userModelPath, err)
 		} else {
-			i.addModel(m)
+			if err := i.addModel(m); err != nil {
+				log.Print(err)
+			}
 		}
 	}
 
@@ -109,12 +113,12 @@ func (i *Inference) addModel(newM *iModel) error {
 		return errors.New("Empty model name")
 	}
 
-	if _, exists := i.models[newM.name]; exists {
-		return fmt.Errorf("Duplicated model: %s", newM.name)
-	}
-
-	if _, err := os.Stat(newM.modelPath); !os.IsNotExist(err) {
-		return fmt.Errorf("Duplicated model path: %s", newM.modelPath)
+	for model, m := range i.models {
+		if model == newM.name || m.name == newM.name {
+			return fmt.Errorf("Duplicated model: %s", newM.name)
+		} else if m.modelPath == newM.modelPath {
+			return fmt.Errorf("Duplicated model path: %s", newM.modelPath)
+		}
 	}
 
 	i.models[newM.name] = newM

@@ -314,62 +314,7 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 		return nil, fmt.Errorf("Not ready yet")
 	}
 
-	result, err := m.infer(image, format)
-	if err != nil {
-		return nil, err
-	}
-
-	if m.cfg.Classification == binaryClass {
-		return classifyBinary(result[0], m.labels)
-	} else if m.cfg.Classification == multiClass {
-		if len(result) != m.nrLables {
-			return nil, fmt.Errorf("The number of correct(%d) and predicted(%d) labels does not match", m.nrLables, len(result))
-		}
-		return classifyMulti(result, m.labels, k)
-	}
-
-	return nil, fmt.Errorf("Unknown classification: %s", m.cfg.Classification)
-}
-
-func classifyBinary(prob float32, labels []string) ([]InferLabel, error) {
-	var (
-		idx    int
-		infers []InferLabel
-	)
-
-	idx = 0
-	if prob >= 0.5 {
-		idx = 1
-	} else {
-		prob = 1 - prob
-	}
-
-	infers = make([]InferLabel, 1)
-	infers[0].Prob = prob
-	infers[0].Label = labels[idx]
-
-	return infers, nil
-}
-
-func classifyMulti(probs []float32, labels []string, k int) ([]InferLabel, error) {
-	var infers []InferLabel
-	for idx, prob := range probs {
-		infers = append(infers, InferLabel{
-			Prob:  prob,
-			Label: labels[idx],
-		})
-	}
-	sort.Sort(sortByProb(infers))
-
-	if k <= 0 {
-		k = constants.DefaultMultiClassMax
-	}
-
-	if k > len(infers) {
-		k = len(infers)
-	}
-
-	return infers[:k], nil
+	return m.infer(image, format, k)
 }
 
 const (
@@ -403,7 +348,7 @@ type imageDecode struct {
 	output  tf.Output
 }
 
-func (m *iModel) infer(image, format string) ([]float32, error) {
+func (m *iModel) infer(image, format string, k int) ([]InferLabel, error) {
 	var (
 		inputImage *tf.Tensor
 		results    []*tf.Tensor
@@ -426,7 +371,15 @@ func (m *iModel) infer(image, format string) ([]float32, error) {
 		return nil, err
 	}
 
-	return results[0].Value().([][]float32)[0], nil
+	probabilities := results[0].Value().([][]float32)[0]
+
+	if m.cfg.Classification == binaryClass {
+		return m.classifyBinary(probabilities[0])
+	} else if m.cfg.Classification == multiClass {
+		return m.classifyMulti(probabilities, k)
+	}
+
+	return nil, fmt.Errorf("Unknown classification: %s", m.cfg.Classification)
 }
 
 func (m *iModel) normInputImage(image, format string) (*tf.Tensor, error) {
@@ -524,6 +477,55 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 	m.imageDecoder[format] = decoder
 
 	return decoder, nil
+}
+
+func (m *iModel) classifyBinary(prob float32) ([]InferLabel, error) {
+	var (
+		idx    int
+		infers []InferLabel
+	)
+
+	idx = 0
+	if prob >= 0.5 {
+		idx = 1
+	} else {
+		prob = 1 - prob
+	}
+
+	infers = make([]InferLabel, 1)
+	infers[0].Prob = prob
+	infers[0].Label = m.labels[idx]
+
+	return infers, nil
+}
+
+func (m *iModel) classifyMulti(probs []float32, k int) ([]InferLabel, error) {
+	if len(probs) != m.nrLables {
+		return nil, fmt.Errorf(
+			"The number of correct(%d) and predicted(%d) labels does not match",
+			m.nrLables,
+			len(probs),
+		)
+	}
+
+	var infers []InferLabel
+	for idx, prob := range probs {
+		infers = append(infers, InferLabel{
+			Prob:  prob,
+			Label: m.labels[idx],
+		})
+	}
+	sort.Sort(sortByProb(infers))
+
+	if k <= 0 {
+		k = constants.DefaultMultiClassMax
+	}
+
+	if k > len(infers) {
+		k = len(infers)
+	}
+
+	return infers[:k], nil
 }
 
 func getNewModel(modelName, modelPath string) *iModel {

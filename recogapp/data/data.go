@@ -47,40 +47,30 @@ func saveImage(file *multipart.FileHeader, dst string) error {
 }
 
 // SaveImages image 저장
-func (dm *Manager) SaveImages(subject, category string, images []*multipart.FileHeader, f saveFunc) (interface{}, error) {
-	result := make(map[string]interface{})
-
-	result["subject"] = subject
-	result["category"] = category
-
-	filePath := path.Join(constants.ImagesPath, subject, category)
-	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
-		return result, err
+func (dm *Manager) SaveImages(subject, category string, images []*multipart.FileHeader, f saveFunc, verbose bool) (interface{}, error) {
+	fileDir := path.Join(constants.ImagesPath, subject, category)
+	if err := os.MkdirAll(fileDir, os.ModePerm); err != nil {
+		return nil, err
 	}
 
 	if f == nil {
 		f = saveImage
 	}
 
-	total := 0
-	nrSuccessful := 0
-	nrFailed := 0
-	errors := make([]map[string]interface{}, 0)
+	var (
+		total      int64
+		successful int64
+		failed     int64
+		items      []db.Item
+		errors     []map[string]interface{}
+	)
 	for _, image := range images {
 		total++
 
 		orgFileName := image.Filename
 		fileName := fmt.Sprintf("%s-%s", uuid.New().String()[:8], orgFileName)
 		fileFormat := strings.ToLower(strings.Split(orgFileName, ".")[1])
-
-		if err := f(image, path.Join(filePath, fileName)); err != nil {
-			errors = append(errors, map[string]interface{}{
-				"file":  orgFileName,
-				"error": err.Error(),
-			})
-			nrFailed++
-			continue
-		}
+		filePath := path.Join(fileDir, fileName)
 
 		item := db.Item{
 			Subject:     subject,
@@ -93,30 +83,153 @@ func (dm *Manager) SaveImages(subject, category string, images []*multipart.File
 		}
 
 		if err := dm.Conn.Insert(item); err != nil {
-			if err := os.Remove(path.Join(filePath, fileName)); err != nil {
+			if verbose {
+				errors = append(errors, map[string]interface{}{
+					"orgfilename": orgFileName,
+					"filename":    fileName,
+					"error":       err.Error(),
+				})
+			}
+
+			failed++
+			continue
+		}
+
+		if err := f(image, filePath); err != nil {
+			if verbose {
+				errors = append(errors, map[string]interface{}{
+					"orgfilename": orgFileName,
+					"filename":    fileName,
+					"error":       err.Error(),
+				})
+			}
+
+			if _, err := dm.Conn.Delete(item); err != nil {
 				log.Print(err)
 			}
-			errors = append(errors, map[string]interface{}{
-				"file":  orgFileName,
-				"error": err.Error(),
-			})
-			nrFailed++
+
+			failed++
+			continue
+		}
+
+		if verbose {
+			items = append(items, item)
+		}
+		successful++
+	}
+
+	infos := map[string]int64{
+		"total":      total,
+		"successful": successful,
+		"failed":     failed,
+	}
+
+	result := make(map[string]interface{})
+	result["infos"] = infos
+
+	if verbose {
+		result["images"] = items
+	}
+
+	if verbose {
+		result["errors"] = errors
+	}
+
+	return result, nil
+}
+
+// DeleteImages image 삭제
+func (dm *Manager) DeleteImages(subject, category, fileName, orgFileName string, verbose bool) (interface{}, error) {
+	param := db.Item{
+		Subject:     subject,
+		Category:    category,
+		Filename:    fileName,
+		OrgFilename: orgFileName,
+	}
+
+	getInfos, items, err := dm.Conn.Get(param)
+	if err != nil {
+		return nil, err
+	}
+
+	getInfosMap := getInfos.(map[string]int64)
+	if getInfosMap["total"] != getInfosMap["successful"] {
+		return nil, fmt.Errorf(
+			"Fail to read images %d of %d",
+			getInfosMap["failed"],
+			getInfosMap["total"],
+		)
+	}
+
+	errors := make([]map[string]interface{}, 0)
+	// 빈 디렉토리를 삭제하기 위해, subject와 category 목록을 저장
+	scMap := make(map[string]map[string]int)
+	for _, item := range items.([]db.Item) {
+		if err := os.Remove(item.FilePath); err != nil {
+			if verbose {
+				errors = append(errors, map[string]interface{}{
+					"orgfilename": item.OrgFilename,
+					"filename":    item.Filename,
+					"error":       err.Error(),
+				})
+			}
 		} else {
-			nrSuccessful++
+			if _, ok := scMap[item.Subject]; !ok {
+				scMap[item.Subject] = make(map[string]int)
+			}
+			if _, ok := scMap[item.Subject][item.Category]; !ok {
+				scMap[item.Subject][item.Category] = 1
+			} else {
+				scMap[item.Subject][item.Category]++
+			}
 		}
 	}
 
-	result["total"] = total
-	result["failed"] = nrFailed
-	result["successful"] = nrSuccessful
-	result["errors"] = errors
+	deleted, err := dm.Conn.Delete(param)
+	if err != nil {
+		return nil, err
+	}
+
+	for subject := range scMap {
+		for category := range scMap[subject] {
+			categoryDir := path.Join(constants.ImagesPath, subject, category)
+			// "directory not empty" 에러는 무시
+			os.Remove(categoryDir)
+		}
+
+		subjectDir := path.Join(constants.ImagesPath, subject)
+		// "directory not empty" 에러는 무시
+		os.Remove(subjectDir)
+	}
+
+	infos := map[string]interface{}{
+		"total":      getInfosMap["total"],
+		"successful": deleted,
+		"failed":     getInfosMap["total"] - deleted,
+	}
+
+	result := make(map[string]interface{})
+	result["infos"] = infos
+
+	if verbose {
+		result["images"] = items
+	}
+
+	if verbose {
+		result["errors"] = errors
+	}
 
 	return result, nil
 }
 
 // ListImages image 목록 반환
 func (dm *Manager) ListImages(subject, category string) (interface{}, error) {
-	infos, items, err := dm.Conn.Get(subject, category)
+	param := db.Item{
+		Subject:  subject,
+		Category: category,
+	}
+
+	infos, items, err := dm.Conn.Get(param)
 	if err != nil {
 		return nil, err
 	}

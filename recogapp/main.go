@@ -55,6 +55,7 @@ func main() {
 	{
 		imagesGroup.GET("", a.ListImages)
 		imagesGroup.POST("", a.UploadImages)
+		imagesGroup.DELETE("", a.DeleteImages)
 	}
 
 	r.Run(":18080")

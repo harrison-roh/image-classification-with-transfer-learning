@@ -2,8 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -44,7 +46,7 @@ type Item struct {
 	Subject     string    `json:"subject"`
 	Category    string    `json:"category"`
 	OrgFilename string    `json:"orgfilename"`
-	Filename    string    `json:"filename,omitempty"`
+	Filename    string    `json:"filename"`
 	FileFormat  string    `json:"-"`
 	FilePath    string    `json:"-"`
 	CreateAt    time.Time `json:"createAt"`
@@ -101,18 +103,48 @@ func (conn *DBconn) Insert(item Item) error {
 	return err
 }
 
-// Get entry 반환
-func (conn *DBconn) Get(subject, category string) (interface{}, interface{}, error) {
-	query := fmt.Sprintf("SELECT subject,category,filename,orgfilename,createAt FROM %s", conn.TableName)
-	if subject != "" {
-		query = fmt.Sprintf("%s WHERE subject='%s'", query, subject)
+// Delete entry 삭제
+func (conn *DBconn) Delete(param Item) (int64, error) {
+	var where []string
+
+	where = appendWhere(where, param.Subject, "subject")
+	where = appendWhere(where, param.Category, "category")
+	where = appendWhere(where, param.OrgFilename, "orgfilename")
+	where = appendWhere(where, param.Filename, "filename")
+	if len(where) == 0 {
+		return -1, errors.New("No arguments")
 	}
-	if category != "" {
-		if subject != "" {
-			query = fmt.Sprintf("%s AND category='%s'", query, category)
-		} else {
-			query = fmt.Sprintf("%s WHERE category='%s'", query, category)
-		}
+
+	whereQuery := strings.Join(where, " AND ")
+
+	query := fmt.Sprintf("DELETE FROM %s WHERE %s", conn.TableName, whereQuery)
+
+	result, err := conn.db.Exec(query)
+	if err != nil {
+		return -1, err
+	}
+	rows, _ := result.RowsAffected()
+
+	return rows, nil
+}
+
+// Get entry 반환
+func (conn *DBconn) Get(param Item) (interface{}, interface{}, error) {
+	var where []string
+
+	where = appendWhere(where, param.Subject, "subject")
+	where = appendWhere(where, param.Category, "category")
+	where = appendWhere(where, param.OrgFilename, "orgfilename")
+	where = appendWhere(where, param.Filename, "filename")
+
+	columns := "subject,category,filename,orgfilename,path,createAt"
+
+	var query string
+	if len(where) == 0 {
+		query = fmt.Sprintf("SELECT %s FROM %s", columns, conn.TableName)
+	} else {
+		whereQuery := strings.Join(where, " AND ")
+		query = fmt.Sprintf("SELECT %s FROM %s WHERE %s", columns, conn.TableName, whereQuery)
 	}
 
 	rows, err := conn.db.Query(query)
@@ -121,9 +153,9 @@ func (conn *DBconn) Get(subject, category string) (interface{}, interface{}, err
 	}
 
 	var (
-		total      int
-		successful int
-		failed     int
+		total      int64
+		successful int64
+		failed     int64
 	)
 
 	var items []Item
@@ -135,6 +167,7 @@ func (conn *DBconn) Get(subject, category string) (interface{}, interface{}, err
 			&item.Category,
 			&item.Filename,
 			&item.OrgFilename,
+			&item.FilePath,
 			&item.CreateAt); err != nil {
 			failed++
 			log.Print(err)
@@ -145,13 +178,21 @@ func (conn *DBconn) Get(subject, category string) (interface{}, interface{}, err
 		items = append(items, item)
 	}
 
-	infos := map[string]int{
+	infos := map[string]int64{
 		"total":      total,
 		"successful": successful,
 		"failed":     failed,
 	}
 
 	return infos, items, nil
+}
+
+func appendWhere(l []string, val, col string) []string {
+	if val != "" {
+		return append(l, fmt.Sprintf("%s='%s'", col, val))
+	}
+
+	return l
 }
 
 // Destroy db connection 해제

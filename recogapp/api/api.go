@@ -138,11 +138,11 @@ func (a *APIs) UploadImages(c *gin.Context) {
 		subject  string
 		category string
 	)
-	if subject = c.PostForm("subject"); subject == "" {
+	if subject = c.Query("subject"); subject == "" {
 		Error(c, http.StatusBadRequest, errors.New("Empty `subject`"))
 		return
 	}
-	if category = c.PostForm("category"); category == "" {
+	if category = c.Query("category"); category == "" {
 		Error(c, http.StatusBadRequest, errors.New("Empty `category`"))
 		return
 	}
@@ -153,9 +153,25 @@ func (a *APIs) UploadImages(c *gin.Context) {
 		return
 	}
 	images := form.File["images[]"]
+	verbose := isVerbose(c)
 
-	if result, err := a.M.SaveImages(subject, category, images, c.SaveUploadedFile); err != nil {
+	if result, err := a.M.SaveImages(subject, category, images, c.SaveUploadedFile, verbose); err != nil {
 		Error(c, http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, result)
+	}
+}
+
+// DeleteImages image 삭제
+func (a *APIs) DeleteImages(c *gin.Context) {
+	subject := c.Query("subject")
+	category := c.Query("category")
+	fileName := c.Query("filename")
+	orgFileName := c.Query("orgfilename")
+	verbose := isVerbose(c)
+
+	if result, err := a.M.DeleteImages(subject, category, fileName, orgFileName, verbose); err != nil {
+		Error(c, http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, result)
 	}
@@ -171,6 +187,14 @@ func (a *APIs) ListImages(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, result)
 	}
+}
+
+func isVerbose(c *gin.Context) bool {
+	if _, ok := c.GetQuery("verbose"); ok {
+		return true
+	}
+
+	return false
 }
 
 // HTTPError api 에러 메시지

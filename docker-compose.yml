@@ -2,54 +2,51 @@ version: "3.8"
 services:
     app:
         build:
-            context: ./recogapp
+            context: ./clsapp
             dockerfile: ./Dockerfile
-        container_name: recog-app
         user: "harrison"
         working_dir: /workspace
         command: /bin/sh -c "while sleep 1000; do :; done"
         depends_on:
             - db
         volumes:
-            - imagedata:/recog/images
-            - modeldata:/recog/models
+            - imagedata:/cls/images
+            - modeldata:/cls/models
             - vscode-server:/home/harrison/.vscode-server
             - vscode-server-insiders:/home/harrison/.vscode-server-insiders
             - .:/workspace
         ports:
             - "18080:18080"
         networks:
-            - recog-net
+            - cls-net
     learnapp:
         build:
             context: ./learnapp
             dockerfile: ./Dockerfile
-        container_name: recog-learnapp
         user: "harrison"
         working_dir: /workspace
         command: /bin/sh -c "while sleep 1000; do :; done"
         depends_on:
             - db
         volumes:
-            - imagedata:/recog/images
-            - modeldata:/recog/models
+            - imagedata:/cls/images
+            - modeldata:/cls/models
             - vscode-server:/home/harrison/.vscode-server
             - vscode-server-insiders:/home/harrison/.vscode-server-insiders
             - .:/workspace
         ports:
             - "18090:18090"
         networks:
-            - recog-net
+            - cls-net
     db:
         image: mysql
-        container_name: recog-db
         command:
             - --character-set-server=utf8mb4
             - --collation-server=utf8mb4_unicode_ci
             - --lower_case_table_names=0
         environment:
             MYSQL_ROOT_PASSWORD: "password0"
-            MYSQL_DATABASE: "recog_image_db"
+            MYSQL_DATABASE: "cls_image_db"
             MYSQL_USER: "user1"
             MYSQL_PASSWORD: "password1"
         volumes:
@@ -57,7 +54,7 @@ services:
         ports:
             - "18100:3306"
         networks:
-            - recog-net
+            - cls-net
 
 volumes:
     vscode-server:
@@ -67,5 +64,5 @@ volumes:
     modeldata:
 
 networks:
-    recog-net:
+    cls-net:
         driver: bridge

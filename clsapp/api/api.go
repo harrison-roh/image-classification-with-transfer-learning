@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/constants"
-	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/data"
-	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/inference"
+	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/constants"
+	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/data"
+	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/inference"
 )
 
 // APIs api 핸들러

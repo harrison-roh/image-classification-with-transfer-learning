@@ -16,7 +16,7 @@ import (
 	"sync/atomic"
 
 	"github.com/google/uuid"
-	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/constants"
+	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/constants"
 	tf "github.com/tensorflow/tensorflow/tensorflow/go"
 	"github.com/tensorflow/tensorflow/tensorflow/go/op"
 	"gopkg.in/yaml.v2"

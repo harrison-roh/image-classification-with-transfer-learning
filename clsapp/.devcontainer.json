@@ -2,11 +2,11 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.128.0/containers/docker-from-docker-compose
 // If you want to run as a non-root user in the container, see .devcontainer/docker-compose.yml.
 {
-	"name": "recog api",
+	"name": "cls api",
 	"dockerComposeFile": "../docker-compose.yml",
 	"service": "app",
 
-	"workspaceFolder": "/workspace/recogapp",
+	"workspaceFolder": "/workspace/clsapp",
 	"runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
 	"settings": {
 		"terminal.integrated.shell.linux": "/bin/bash"

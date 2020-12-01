@@ -3,7 +3,6 @@ import yaml
 
 from flask import Flask
 from flask import request, jsonify
-import pymysql
 
 import tensorflow as tf
 import tensorflow_datasets as tfds

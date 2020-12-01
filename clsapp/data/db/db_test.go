@@ -14,7 +14,7 @@ type Result struct {
 
 func TestDB(t *testing.T) {
 	driverName := "mysql"
-	connInfo := "user1:password1@tcp(db:3306)/recog_image_db"
+	connInfo := "user1:password1@tcp(db:3306)/cls_image_db"
 	tableName := "test_tab1"
 
 	conn, err := New(Config{

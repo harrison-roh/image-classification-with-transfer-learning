@@ -5,9 +5,9 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/api"
-	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/data"
-	"github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp/inference"
+	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/api"
+	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/data"
+	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/inference"
 )
 
 func main() {

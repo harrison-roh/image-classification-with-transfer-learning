@@ -7,9 +7,9 @@ ARG USERNAME=harrison
 ARG USER_UID=501
 ARG USER_GID=${USER_UID}
 
-ARG OPT_DIR=/recog/opt
-ARG IMAGEDATA_DIR=/recog/images
-ARG MODELDATA_DIR=/recog/models
+ARG OPT_DIR=/cls/opt
+ARG IMAGEDATA_DIR=/cls/images
+ARG MODELDATA_DIR=/cls/models
 
 ENV TZ=Asia/Seoul
 RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
@@ -28,10 +28,10 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME} \
     # Avoiding extension reinstalls on container rebuild
     && mkdir -p /home/${USERNAME}/.vscode-server \
-        /home/${USERNAME}/.vscode-server-insiders \
+    /home/${USERNAME}/.vscode-server-insiders \
     && chown -R ${USERNAME} \
-        /home/${USERNAME}/.vscode-server \
-        /home/${USERNAME}/.vscode-server-insiders
+    /home/${USERNAME}/.vscode-server \
+    /home/${USERNAME}/.vscode-server-insiders
 
 RUN [ -d "${OPT_DIR}" ] || mkdir -p ${OPT_DIR}
 RUN [ -d "${IMAGEDATA_DIR}" ] || mkdir -p ${IMAGEDATA_DIR}

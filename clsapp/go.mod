@@ -1,4 +1,4 @@
-module github.com/harrison-roh/image-recognition-with-transfer-learning/recogapp
+module github.com/harrison-roh/image-classification-with-transfer-learning/clsapp
 
 go 1.14
 
@@ -8,5 +8,5 @@ require (
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/tensorflow/tensorflow v1.12.0 // manually modifed
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.4.0
 )

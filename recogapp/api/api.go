@@ -97,20 +97,16 @@ func (a *APIs) CreateModel(c *gin.Context) {
 		return
 	}
 
-	subject := c.PostForm("subject")
-	desc := c.PostForm("desc")
-	trial := c.PostForm("trial")
-	isTrial, err := strconv.ParseBool(trial)
-	if err != nil {
-		isTrial = false
-	}
-	epochs := c.PostForm("epochs")
+	subject := c.Query("subject")
+	desc := c.Query("desc")
+	_, trial := c.GetQuery("trial")
+	epochs := c.Query("epochs")
 	nrEpochs, err := strconv.Atoi(epochs)
 	if err != nil {
 		nrEpochs = constants.TrainEpochs
 	}
 
-	if res, err := a.I.CreateModel(model, subject, desc, nrEpochs, isTrial); err != nil {
+	if res, err := a.I.CreateModel(model, subject, desc, nrEpochs, trial); err != nil {
 		Error(c, http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, res)
@@ -153,7 +149,7 @@ func (a *APIs) UploadImages(c *gin.Context) {
 		return
 	}
 	images := form.File["images[]"]
-	verbose := isVerbose(c)
+	_, verbose := c.GetQuery("verbose")
 
 	if result, err := a.M.SaveImages(subject, category, images, c.SaveUploadedFile, verbose); err != nil {
 		Error(c, http.StatusBadRequest, err)
@@ -168,7 +164,7 @@ func (a *APIs) DeleteImages(c *gin.Context) {
 	category := c.Query("category")
 	fileName := c.Query("filename")
 	orgFileName := c.Query("orgfilename")
-	verbose := isVerbose(c)
+	_, verbose := c.GetQuery("verbose")
 
 	if result, err := a.M.DeleteImages(subject, category, fileName, orgFileName, verbose); err != nil {
 		Error(c, http.StatusInternalServerError, err)
@@ -187,14 +183,6 @@ func (a *APIs) ListImages(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, result)
 	}
-}
-
-func isVerbose(c *gin.Context) bool {
-	if _, ok := c.GetQuery("verbose"); ok {
-		return true
-	}
-
-	return false
 }
 
 // HTTPError api 에러 메시지

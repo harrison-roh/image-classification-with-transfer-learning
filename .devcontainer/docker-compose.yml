@@ -1,0 +1,60 @@
+version: "3.8"
+services:
+    app:
+        build:
+            context: ../clsapp
+            dockerfile: dev.Dockerfile
+        user: "dev"
+        working_dir: /workspace
+        command: /bin/sh -c "while sleep 1000; do :; done"
+        depends_on:
+            - db
+        volumes:
+            - imagedata:/cls/images
+            - modeldata:/cls/models
+            - ../clsapp:/workspace
+        ports:
+            - "18080:18080"
+        networks:
+            - net
+    learnapp:
+        build:
+            context: ../learnapp
+            dockerfile: dev.Dockerfile
+        working_dir: /workspace
+        user: "dev"
+        command: /bin/sh -c "while sleep 1000; do :; done"
+        volumes:
+            - imagedata:/cls/images
+            - modeldata:/cls/models
+            - ../learnapp:/workspace
+        ports:
+            - "18090:18090"
+        networks:
+            - net
+    db:
+        image: mysql
+        command:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+            - --lower_case_table_names=0
+        environment:
+            MYSQL_ROOT_PASSWORD: "password0"
+            MYSQL_DATABASE: "cls_image_db"
+            MYSQL_USER: "user1"
+            MYSQL_PASSWORD: "password1"
+        volumes:
+            - dbdata:/var/lib/mysql
+        ports:
+            - "18100:3306"
+        networks:
+            - net
+
+volumes:
+    dbdata:
+    imagedata:
+    modeldata:
+
+networks:
+    net:
+        driver: bridge

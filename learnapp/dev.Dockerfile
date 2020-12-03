@@ -1,6 +1,6 @@
 FROM tensorflow/tensorflow
 
-ARG USERNAME=harrison
+ARG USERNAME=dev
 # For Linux local machine
 #ARG USER_UID=1000
 # For MacOS local machine

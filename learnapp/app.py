@@ -116,8 +116,8 @@ def create_base_model(model_name, params):
 
     return jsonify(
         {
-            "modelName": model_name,
-            "modelType": MODEL_TYPE_BASE,
+            "model": model_name,
+            "type": MODEL_TYPE_BASE,
         }
     )
 
@@ -168,8 +168,8 @@ def create_transfer_learned_model(model_name, params):
     with open(os.path.join(model_path, cfg_file), "w") as fp:
         yaml.dump(cfg, fp)
 
-    result["modelName"] = model_name
-    result["modelType"] = model_type
+    result["model"] = model_name
+    result["type"] = model_type
 
     return jsonify(result)
 

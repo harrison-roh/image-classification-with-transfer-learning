@@ -124,7 +124,9 @@ func (a *APIs) DeleteModel(c *gin.Context) {
 	if err := a.I.DeleteModel(model); err != nil {
 		Error(c, http.StatusInternalServerError, err)
 	} else {
-		c.String(http.StatusOK, "OK")
+		c.JSON(http.StatusOK, gin.H{
+			"model": model,
+		})
 	}
 }
 

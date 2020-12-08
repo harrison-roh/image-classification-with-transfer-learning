@@ -276,7 +276,7 @@ func (i *Inference) GetModel(model string) map[string]interface{} {
 	defer i.putModel(m)
 
 	var status string
-	switch m.status {
+	switch atomic.LoadInt32(&m.status) {
 	case modelStatusReady:
 		status = "ready"
 	case modelStatusRun:
@@ -310,7 +310,7 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 	}
 	defer i.putModel(m)
 
-	if m.status != modelStatusRun {
+	if atomic.LoadInt32(&m.status) != modelStatusRun {
 		return nil, fmt.Errorf("Not ready yet")
 	}
 
@@ -588,7 +588,7 @@ func loadModel(m *iModel) error {
 	m.nrLables = len(labels)
 	m.labels = labels
 	// Setting status should always be last
-	m.status = modelStatusRun
+	atomic.StoreInt32(&m.status, modelStatusRun)
 
 	return nil
 }

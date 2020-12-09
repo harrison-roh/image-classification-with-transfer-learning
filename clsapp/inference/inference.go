@@ -265,7 +265,7 @@ func (i *Inference) GetModels() []string {
 }
 
 // GetModel 이미지 추론 모델 정보 반환
-func (i *Inference) GetModel(model string) map[string]interface{} {
+func (i *Inference) GetModel(model string, verbose bool) map[string]interface{} {
 	i.rwMutex.RLock()
 	m := i.getModel(model)
 	i.rwMutex.RUnlock()
@@ -285,6 +285,22 @@ func (i *Inference) GetModel(model string) map[string]interface{} {
 		status = "unknown"
 	}
 
+	var labels []string
+	if verbose {
+		labels = make([]string, len(m.labels))
+		copy(labels, m.labels)
+	} else {
+		l := 10
+		if l > len(m.labels) {
+			l = len(m.labels)
+		}
+		labels = make([]string, l)
+		copy(labels, m.labels)
+		if len(m.labels) > l {
+			labels = append(labels, "...")
+		}
+	}
+
 	return map[string]interface{}{
 		"model":          m.name,
 		"type":           m.cfg.Type,
@@ -295,6 +311,7 @@ func (i *Inference) GetModel(model string) map[string]interface{} {
 		"outputOperator": m.cfg.OutputOperationName,
 		"inputShape":     m.inputShape,
 		"numberOfLables": m.nrLables,
+		"lables":         labels,
 		"description":    m.cfg.Description,
 	}
 }

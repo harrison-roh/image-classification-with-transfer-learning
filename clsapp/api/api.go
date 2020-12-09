@@ -33,8 +33,9 @@ func (a *APIs) ListModels(c *gin.Context) {
 // ShowModel 추론 모델 정보 반환
 func (a *APIs) ShowModel(c *gin.Context) {
 	model := c.Param("model")
+	_, verbose := c.GetQuery("verbose")
 
-	if info := a.I.GetModel(model); info != nil {
+	if info := a.I.GetModel(model, verbose); info != nil {
 		c.JSON(http.StatusOK, info)
 	} else {
 		Error(c, http.StatusBadRequest, fmt.Errorf("Cannot find model info: %s", model))

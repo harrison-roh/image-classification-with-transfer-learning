@@ -14,7 +14,7 @@ services:
             - modeldata:/cls/models
             - ../clsapp:/workspace
         ports:
-            - "18080:18080"
+            - "18180:18080"
         networks:
             - net
     learnapp:
@@ -29,7 +29,7 @@ services:
             - modeldata:/cls/models
             - ../learnapp:/workspace
         ports:
-            - "18090:18090"
+            - "18190:18090"
         networks:
             - net
     db:
@@ -46,7 +46,7 @@ services:
         volumes:
             - dbdata:/var/lib/mysql
         ports:
-            - "18100:3306"
+            - "18200:3306"
         networks:
             - net
 

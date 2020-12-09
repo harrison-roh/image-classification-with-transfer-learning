@@ -13,7 +13,7 @@ services:
             - imagedata:/cls/images
             - modeldata:/cls/models
         ports:
-            - "18180:18080"
+            - "18080:18080"
         networks:
             - cls-net
     learnapp:
@@ -26,7 +26,7 @@ services:
             - imagedata:/cls/images
             - modeldata:/cls/models
         ports:
-            - "18190:18090"
+            - "18090:18090"
         networks:
             - cls-net
     db:
@@ -43,7 +43,7 @@ services:
         volumes:
             - dbdata:/var/lib/mysql
         ports:
-            - "18200:3306"
+            - "18100:3306"
         networks:
             - cls-net
 

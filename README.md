@@ -3,7 +3,13 @@
 keras를 이용해 전이학습을 통한 모델을 생성하며, GO tensorflow를 이용해 모델 로드 및 이미지를 추론.
 전이학습을 위한 사용자 이미지를 업로드 하고, 기본 모델 기반의 전이학습을 통해 분류계층을 학습함으로써 해당 이미지에 특화된 분류 모델을 생성.
 
-## 실행
+## 시작하기
+
+### 실행
+
+```sh
+docker-compose up -d
+```
 
 ### 개발
 
@@ -12,9 +18,11 @@ vscode의 devcontainer를 이용하며, 각 앱의 개발환경은 다음을 실
 - clsapp
   - Command Palette (F1)에서 **Remote-Containers: Open Folder in Container...** 실행
   - image-classification-with-transfer-learning/clsapp 열기
+  - container 안에서 `go run main.go` 실행
 - learnapp
   - Command Palette (F1)에서 **Remote-Containers: Open Folder in Container...** 실행
   - image-classification-with-transfer-learning/learnapp 열기
+  - container 안에서 `python app.py` 실행
 
 ## APIs
 

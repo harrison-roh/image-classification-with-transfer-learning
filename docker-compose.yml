@@ -4,38 +4,29 @@ services:
         build:
             context: ./clsapp
             dockerfile: ./Dockerfile
-        user: "harrison"
-        working_dir: /workspace
-        command: /bin/sh -c "while sleep 1000; do :; done"
+        user: "serv"
+        working_dir: /app
+        command: ["./wait-for/wait-for", "learnapp:18090", "--", "./clsapp"]
         depends_on:
             - db
         volumes:
             - imagedata:/cls/images
             - modeldata:/cls/models
-            - vscode-server:/home/harrison/.vscode-server
-            - vscode-server-insiders:/home/harrison/.vscode-server-insiders
-            - .:/workspace
         ports:
-            - "18080:18080"
+            - "18180:18080"
         networks:
             - cls-net
     learnapp:
         build:
             context: ./learnapp
             dockerfile: ./Dockerfile
-        user: "harrison"
-        working_dir: /workspace
-        command: /bin/sh -c "while sleep 1000; do :; done"
-        depends_on:
-            - db
+        user: "serv"
+        working_dir: /app
         volumes:
             - imagedata:/cls/images
             - modeldata:/cls/models
-            - vscode-server:/home/harrison/.vscode-server
-            - vscode-server-insiders:/home/harrison/.vscode-server-insiders
-            - .:/workspace
         ports:
-            - "18090:18090"
+            - "18190:18090"
         networks:
             - cls-net
     db:
@@ -52,13 +43,11 @@ services:
         volumes:
             - dbdata:/var/lib/mysql
         ports:
-            - "18100:3306"
+            - "18200:3306"
         networks:
             - cls-net
 
 volumes:
-    vscode-server:
-    vscode-server-insiders:
     dbdata:
     imagedata:
     modeldata:

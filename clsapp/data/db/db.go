@@ -151,6 +151,7 @@ func (conn *DBconn) Get(param Item) (interface{}, interface{}, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	defer rows.Close()
 
 	var (
 		total      int64

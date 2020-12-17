@@ -245,9 +245,9 @@ func (dm *Manager) ListImages(subject, category string) (interface{}, error) {
 // Destroy Data manager 해제
 func (dm *Manager) Destroy() {
 	if err := dm.Conn.Destroy(); err != nil {
-		log.Printf("DB %s successfully closed", dm.Conn.TableName)
+		log.Printf("DB %s close failed: %s", dm.Conn.TableName, err)
 	} else {
-		log.Printf("DB %s close failed", dm.Conn.TableName)
+		log.Printf("DB %s successfully closed", dm.Conn.TableName)
 	}
 }
 

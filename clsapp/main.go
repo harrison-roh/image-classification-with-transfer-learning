@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/harrison-roh/cleanuphttp"
 	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/api"
 	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/data"
 	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/inference"
@@ -27,7 +30,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer m.Destroy()
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 8 << 20
@@ -59,5 +61,22 @@ func main() {
 		imagesGroup.DELETE("", a.DeleteImages)
 	}
 
-	r.Run(":18080")
+	server := &http.Server{
+		Addr:    ":18080",
+		Handler: r,
+	}
+
+	cleanuphttp.PostCleanupPush(cleanupInference, i)
+	cleanuphttp.PostCleanupPush(cleanupData, m)
+	cleanuphttp.Serve(server, 5*time.Second)
+}
+
+func cleanupInference(arg interface{}) {
+	i := arg.(*inference.Inference)
+	i.Destroy()
+}
+
+func cleanupData(arg interface{}) {
+	m := arg.(*data.Manager)
+	m.Destroy()
 }

@@ -394,6 +394,18 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 	return m.infer(image, format, k)
 }
 
+// Destroy 추론 모델 해제
+func (i *Inference) Destroy() {
+	i.rwMutex.Lock()
+	defer i.rwMutex.Unlock()
+
+	for model, m := range i.models {
+		m.destroy()
+		delete(i.models, model)
+		log.Printf("%s model closed", model)
+	}
+}
+
 const (
 	modelStatusReady = iota
 	modelStatusBuild
@@ -412,7 +424,7 @@ type iModel struct {
 	inputShape []int32
 
 	imageDecoder map[string]imageDecode
-	idMutex      sync.Mutex
+	mutex        sync.Mutex
 
 	nrLables int
 	labels   []string
@@ -508,8 +520,8 @@ func (m *iModel) getImageDecoder(format string) (imageDecode, error) {
 		return decoder, nil
 	}
 
-	m.idMutex.Lock()
-	defer m.idMutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	decoder, ok = m.imageDecoder[format]
 	if ok {
@@ -604,6 +616,24 @@ func (m *iModel) classifyMulti(probs []float32, k int) ([]InferLabel, error) {
 	}
 
 	return infers[:k], nil
+}
+
+func (m *iModel) destroy() {
+	m.mutex.Lock()
+	for format, decoder := range m.imageDecoder {
+		if err := decoder.session.Close(); err != nil {
+			log.Printf("%s image decoder session close failed: %s", format, err)
+		} else {
+			log.Printf("%s image decoder session successfully closed", format)
+		}
+	}
+	m.mutex.Unlock()
+
+	if err := m.tfModel.Session.Close(); err != nil {
+		log.Printf("%s model session close failed: %s", m.name, err)
+	} else {
+		log.Printf("%s model session successfully closed", m.name)
+	}
 }
 
 func getNewModel(model, modelPath string) *iModel {

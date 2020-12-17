@@ -1,5 +1,11 @@
 import os
 import yaml
+import time
+import requests
+import queue
+import errno
+import threading
+import multiprocessing as mp
 
 from flask import Flask
 from flask import request, jsonify
@@ -7,7 +13,13 @@ from flask import request, jsonify
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
+CLSAPP = "app:18080"
+running = True
+
+MAX_CONCURRENT = 4
+
 app = Flask(__name__)
+q = queue.Queue(maxsize=10)
 
 MODEL_TYPE_BASE = "base"
 MODEL_TYPE_PRACTICAL = "practical"
@@ -18,10 +30,82 @@ MULTI_CLASS = "multi"
 
 LABELS_FILE = "lables"
 
+TRAINING_EPOCHS_DEFAULT = 10
 IMAGE_SIZE = 224
 
 
-@app.route("/model/<model_name>", methods=["POST"])
+class DeferredDelDict(dict):
+    _dels = None
+
+    def __enter__(self):
+        self._dels = set()
+
+    def __exit__(self, type, value, traceback):
+        for key in self._dels:
+            try:
+                dict.__delitem__(self, key)
+            except KeyError:
+                pass
+        self._dels = None
+
+    def __delitem__(self, key):
+        if key not in self:
+            raise KeyError(str(key))
+
+        dict.__delitem__(self, key) if self._dels is None else self._dels.add(key)
+
+
+tasks = DeferredDelDict()
+
+
+class ModelRequest:
+    def __init__(self, model_name, model_type, params):
+        self.model_name = model_name
+        self.model_type = model_type
+        self.params = params
+
+
+def shutdown_server():
+    stop = request.environ.get("werkzeug.server.shutdown")
+    if stop is None:
+        raise RuntimeError("Not running with the Werkzeug Server")
+
+    print("Shutting down...")
+    stop()
+
+
+@app.route("/shutdown", methods=["POST"])
+def shutdown():
+    global running
+    running = False
+
+    remaining_requests = q.qsize()
+    building_requests = len(tasks)
+
+    shutdown_server()
+
+    return jsonify(
+        {
+            "remainingRequests": remaining_requests,
+            "buildingRequests": building_requests,
+        }
+    )
+
+
+@app.route("/models", methods=["GET"])
+def get_models():
+    remaining_requests = q.qsize()
+    building_requests = len(tasks)
+
+    return jsonify(
+        {
+            "remainingRequests": remaining_requests,
+            "buildingRequests": building_requests,
+        }
+    )
+
+
+@app.route("/models/<model_name>", methods=["POST"])
 def create_model(model_name):
     if model_name == "":
         return error_response(400, "Invalid model name")
@@ -36,9 +120,25 @@ def create_model(model_name):
     trial = params.get("trial", False)
 
     if image_path != "" or trial:
-        return create_transfer_learned_model(model_name, params)
+        if trial:
+            model_type = MODEL_TYPE_TRIAL
+        else:
+            model_type = MODEL_TYPE_PRACTICAL
     else:
-        return create_base_model(model_name, params)
+        model_type = MODEL_TYPE_BASE
+
+    req = ModelRequest(model_name, model_type, params)
+    try:
+        q.put_nowait(req)
+    except queue.Full:
+        return error_response(500, "Server currently busy")
+
+    return jsonify(
+        {
+            "model": model_name,
+            "type": model_type,
+        }
+    )
 
 
 def check_necessary_params(params):
@@ -68,9 +168,13 @@ def get_base_model(is_tl):
 
 
 def create_base_model(model_name, params):
-    model_path = params.get("modelPath")
-
     model = get_base_model(False)
+
+    model_path = params.get("modelPath")
+    if os.path.isdir(model_path):
+        print(f"Model path already exists: {model_path}")
+        return
+
     model.save(model_path)
 
     tmp_labels_file = f"{LABELS_FILE}.tmp"
@@ -96,17 +200,19 @@ def create_base_model(model_name, params):
     )
     output_name = "StatefulPartitionedCall"
 
-    desc = params.get("desc")
+    desc = params.get("desc", "")
+    if desc == "":
+        desc = "Default base model"
 
     cfg = {
         "name": model_name,
         "type": MODEL_TYPE_BASE,
         "tags": [tf.saved_model.SERVING],  # meta graph를 명시하며 "serving"을 사용
         "classification": MULTI_CLASS,
-        "input_shape": list(model.input_shape[1:]),  # ignore batch size
-        "input_operation_name": input_name,
-        "output_operation_name": output_name,
-        "labels_file": LABELS_FILE,
+        "inputShape": list(model.input_shape[1:]),  # ignore batch size
+        "inputOperationName": input_name,
+        "outputOperationName": output_name,
+        "labelsFile": LABELS_FILE,
         "description": desc,
     }
 
@@ -114,30 +220,36 @@ def create_base_model(model_name, params):
     with open(os.path.join(model_path, cfg_file), "w") as fp:
         yaml.dump(cfg, fp)
 
-    return jsonify(
-        {
-            "model": model_name,
-            "type": MODEL_TYPE_BASE,
-        }
+    response = requests.put(
+        f"http://{CLSAPP}/models/{model_name}", json={"modelPath": model_path}
+    )
+    print(
+        f"Operate {model_name}, {MODEL_TYPE_BASE}, {model_path}: {response.status_code}"
     )
 
 
 def create_transfer_learned_model(model_name, params):
     trial = params.get("trial", False)
+    epochs = params.get("epochs", TRAINING_EPOCHS_DEFAULT)
 
     base_model = get_base_model(True)
     if trial:
         model_type = MODEL_TYPE_TRIAL
         model, classification, labels, result = trial_trasnfer_learned_model(
-            base_model, params
+            base_model, epochs
         )
     else:
         model_type = MODEL_TYPE_PRACTICAL
+        image_path = params.get("imagePath", "")
         model, classification, labels, result = practical_trasnfer_learned_model(
-            base_model, params
+            base_model, image_path, epochs
         )
 
     model_path = params.get("modelPath")
+    if os.path.isdir(model_path):
+        print(f"Model path already exists: {model_path}")
+        return
+
     model.save(model_path)
 
     with open(os.path.join(model_path, LABELS_FILE), "w") as fp:
@@ -157,26 +269,27 @@ def create_transfer_learned_model(model_name, params):
         "type": model_type,
         "tags": [tf.saved_model.SERVING],  # meta graph를 명시하며 "serving"을 사용
         "classification": classification,
-        "input_shape": list(model.input_shape[1:]),  # ignore batch size
-        "input_operation_name": input_name,
-        "output_operation_name": output_name,
-        "labels_file": LABELS_FILE,
+        "inputShape": list(model.input_shape[1:]),  # ignore batch size
+        "inputOperationName": input_name,
+        "outputOperationName": output_name,
+        "labelsFile": LABELS_FILE,
         "description": desc,
+        "trainingResult": result,  # 학습결과 저장
     }
 
     cfg_file = params.get("configFile")
     with open(os.path.join(model_path, cfg_file), "w") as fp:
         yaml.dump(cfg, fp)
 
-    result["model"] = model_name
-    result["type"] = model_type
+    response = requests.put(
+        f"http://{CLSAPP}/models/{model_name}", json={"modelPath": model_path}
+    )
+    print(
+        f"Operate {model_name}, {MODEL_TYPE_BASE}, {model_path}: {response.status_code}"
+    )
 
-    return jsonify(result)
 
-
-def practical_trasnfer_learned_model(base_model, params):
-    image_path = params.get("imagePath", "")
-
+def practical_trasnfer_learned_model(base_model, image_path, epochs):
     dirs = []
     for file in os.listdir(image_path):
         path = os.path.join(image_path, file)
@@ -210,13 +323,12 @@ def practical_trasnfer_learned_model(base_model, params):
 
     model, classification = build_and_compile_model(base_model, train, len(labels))
 
-    epochs = params.get("epochs", 10)
     result = train_and_evaluate_model(model, train, validation, epochs)
 
     return model, classification, labels, result
 
 
-def trial_trasnfer_learned_model(base_model, params):
+def trial_trasnfer_learned_model(base_model, epochs):
     (raw_train, raw_validation), metadata = tfds.load(
         "cats_vs_dogs",
         split=["train[:30%]", "train[80%:]"],
@@ -241,7 +353,6 @@ def trial_trasnfer_learned_model(base_model, params):
         len(labels),
     )
 
-    epochs = params.get("epochs", 10)
     result = train_and_evaluate_model(model, train_batches, validation_batches, epochs)
 
     return model, classification, labels, result
@@ -328,7 +439,7 @@ def normalize_and_resize_image(image, label):
 def error_response(status, message):
     response = jsonify(
         {
-            "message": message,
+            "error": message,
         }
     )
     response.status_code = status
@@ -336,5 +447,63 @@ def error_response(status, message):
     return response
 
 
+def overwatch_tasks(tasks, timeout=None):
+    with tasks:
+        for task in tasks:
+            try:
+                task.get(timeout)
+            except mp.TimeoutError:
+                continue
+
+            del tasks[task]
+
+
+def management(nr_workers=MAX_CONCURRENT):
+    global tasks
+    with mp.Pool(processes=nr_workers) as pool:
+        while running:
+            overwatch_tasks(tasks, 1)
+            if len(tasks) >= MAX_CONCURRENT or q.empty():
+                time.sleep(1)
+                continue
+
+            while running and len(tasks) < MAX_CONCURRENT:
+                try:
+                    req = q.get_nowait()
+                except queue.Empty:
+                    break
+
+                if (
+                    req.model_type == MODEL_TYPE_PRACTICAL
+                    or req.model_type == MODEL_TYPE_TRIAL
+                ):
+                    task = pool.apply_async(
+                        func=create_transfer_learned_model,
+                        args=(
+                            req.model_name,
+                            req.params,
+                        ),
+                    )
+                else:
+                    task = pool.apply_async(
+                        func=create_base_model,
+                        args=(
+                            req.model_name,
+                            req.params,
+                        ),
+                    )
+
+                tasks[task] = True
+
+        overwatch_tasks(tasks)
+
+    print("Exit manager")
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port="18090", debug=True)
+    manager = threading.Thread(target=management)
+    manager.start()
+
+    app.run(host="0.0.0.0", port="18090", debug=True, use_reloader=False)
+
+    manager.join()

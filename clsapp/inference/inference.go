@@ -43,16 +43,27 @@ const (
 	multiClass  = "multi"
 )
 
+type trainingResult struct {
+	Epochs             int       `yaml:"epochs"`
+	InitLoss           float32   `yaml:"initLoss"`
+	InitAccuracy       float32   `yaml:"initAccuracy"`
+	TrainLoss          []float32 `yaml:"trainLoss"`
+	TrainAccuracy      []float32 `yaml:"trainAccuracy"`
+	ValidationLoss     []float32 `yaml:"validationLoss"`
+	ValidationAccuracy []float32 `yaml:"validationAccuracy"`
+}
+
 type modelConfig struct {
-	Name                string   `yaml:"name"`
-	Type                string   `yaml:"type"`
-	Tags                []string `yaml:"tags"`
-	Classification      string   `yaml:"classification"`
-	InputShape          []int32  `yaml:"input_shape"`
-	InputOperationName  string   `yaml:"input_operation_name"`
-	OutputOperationName string   `yaml:"output_operation_name"`
-	LabelsFile          string   `yaml:"labels_file"`
-	Description         string   `yaml:"description"`
+	Name                string         `yaml:"name"`
+	Type                string         `yaml:"type"`
+	Tags                []string       `yaml:"tags"`
+	Classification      string         `yaml:"classification"`
+	InputShape          []int32        `yaml:"inputShape"`
+	InputOperationName  string         `yaml:"inputOperationName"`
+	OutputOperationName string         `yaml:"outputOperationName"`
+	LabelsFile          string         `yaml:"labelsFile"`
+	TrainingResult      trainingResult `yaml:"trainingResult"`
+	Description         string         `yaml:"description"`
 }
 
 func (i *Inference) loadModels() error {
@@ -165,7 +176,7 @@ func (i *Inference) putModel(m *iModel) {
 	atomic.AddInt32(&m.refCount, -1)
 }
 
-// CreateRequest 모델 생성 요청 정보
+// CreateRequest 모델 생성 요청
 type CreateRequest struct {
 	// Image root path for training
 	ImagePath string `json:"imagePath"`
@@ -180,6 +191,11 @@ type CreateRequest struct {
 	Trial bool `json:"trial"`
 }
 
+// CreateResponse 모델 생성 응답
+type CreateResponse struct {
+	ModelPath string `json:"modelPath" binding:"required"`
+}
+
 // CreateModel 추론모델 생성
 func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, trial bool) (map[string]interface{}, error) {
 	modelDir := fmt.Sprintf("%s-%s", newModel, uuid.New().String()[:8])
@@ -192,9 +208,9 @@ func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, tria
 		i.rwMutex.Unlock()
 		return nil, err
 	}
-	// 모델 로드가 완료되기전 삭제가 되지 않도록 참조카운터를 증가
 	i.getModel(newModel)
 	i.rwMutex.Unlock()
+	defer i.putModel(m)
 
 	configFile := path.Join(modelPath, "config.yaml")
 	imagePath := ""
@@ -214,7 +230,7 @@ func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, tria
 	j, _ := json.Marshal(req)
 	data := bytes.NewBuffer(j)
 
-	url := fmt.Sprintf("http://%s/model/%s", i.lHost, newModel)
+	url := fmt.Sprintf("http://%s/models/%s", i.lHost, newModel)
 	res, err := http.Post(url, "application/json", data)
 	if err != nil {
 		i.rwMutex.Lock()
@@ -232,15 +248,40 @@ func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, tria
 		return nil, err
 	}
 
+	atomic.StoreInt32(&m.status, modelStatusBuild)
+
+	return response, nil
+}
+
+// OperateModel 생성 된 추론모델 로드
+func (i *Inference) OperateModel(model, modelPath string) error {
+	i.rwMutex.RLock()
+	m := i.getModel(model)
+	i.rwMutex.RUnlock()
+
+	if m == nil {
+		if err := os.RemoveAll(modelPath); err != nil {
+			log.Print(err)
+		}
+		return fmt.Errorf("No such model for register: %s", model)
+	}
+	defer i.putModel(m)
+
+	if m.modelPath != modelPath {
+		i.rwMutex.Lock()
+		i.delModelUncond(m)
+		i.rwMutex.Unlock()
+		return fmt.Errorf("Invalid model path: %s", model)
+	}
+
 	if err := loadModel(m); err != nil {
 		i.rwMutex.Lock()
 		i.delModelUncond(m)
 		i.rwMutex.Unlock()
-		return nil, err
+		return err
 	}
 
-	i.putModel(m)
-	return response, nil
+	return nil
 }
 
 // DeleteModel 모델 삭제
@@ -279,6 +320,8 @@ func (i *Inference) GetModel(model string, verbose bool) map[string]interface{} 
 	switch atomic.LoadInt32(&m.status) {
 	case modelStatusReady:
 		status = "ready"
+	case modelStatusBuild:
+		status = "build"
 	case modelStatusRun:
 		status = "run"
 	default:
@@ -301,19 +344,36 @@ func (i *Inference) GetModel(model string, verbose bool) map[string]interface{} 
 		}
 	}
 
-	return map[string]interface{}{
+	info := map[string]interface{}{
 		"model":          m.name,
-		"type":           m.cfg.Type,
-		"classification": m.cfg.Classification,
 		"refCount":       m.refCount,
-		"status":         status,
-		"inputOperator":  m.cfg.InputOperationName,
-		"outputOperator": m.cfg.OutputOperationName,
 		"inputShape":     m.inputShape,
 		"numberOfLables": m.nrLables,
-		"lables":         labels,
+		"type":           m.cfg.Type,
+		"classification": m.cfg.Classification,
+		"inputOperator":  m.cfg.InputOperationName,
+		"outputOperator": m.cfg.OutputOperationName,
 		"description":    m.cfg.Description,
+		"status":         status,
+		"lables":         labels,
 	}
+
+	if verbose {
+		trainingInfo := map[string]interface{}{
+			"epochs":             m.cfg.TrainingResult.Epochs,
+			"initLoss":           m.cfg.TrainingResult.InitLoss,
+			"initAccuracy":       m.cfg.TrainingResult.InitAccuracy,
+			"trainLoss":          m.cfg.TrainingResult.TrainLoss,
+			"trainAccuracy":      m.cfg.TrainingResult.TrainAccuracy,
+			"validationLoss":     m.cfg.TrainingResult.ValidationLoss,
+			"validationAccuracy": m.cfg.TrainingResult.ValidationAccuracy,
+		}
+
+		info["trainingResult"] = trainingInfo
+
+	}
+
+	return info
 }
 
 // Infer 추론
@@ -336,6 +396,7 @@ func (i *Inference) Infer(model, image, format string, k int) ([]InferLabel, err
 
 const (
 	modelStatusReady = iota
+	modelStatusBuild
 	modelStatusRun
 )
 
@@ -545,9 +606,9 @@ func (m *iModel) classifyMulti(probs []float32, k int) ([]InferLabel, error) {
 	return infers[:k], nil
 }
 
-func getNewModel(modelName, modelPath string) *iModel {
+func getNewModel(model, modelPath string) *iModel {
 	return &iModel{
-		name:      modelName,
+		name:      model,
 		modelPath: modelPath,
 		status:    modelStatusReady,
 	}

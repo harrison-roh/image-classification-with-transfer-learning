@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -111,6 +112,24 @@ func (a *APIs) CreateModel(c *gin.Context) {
 		Error(c, http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, res)
+	}
+}
+
+// OperateModel 생성 된 모델 로드
+func (a *APIs) OperateModel(c *gin.Context) {
+	model := c.Param("model")
+
+	var params inference.CreateResponse
+	if err := c.ShouldBindJSON(&params); err != nil {
+		log.Printf("Invalid paramaters: %s", err.Error())
+		c.String(http.StatusBadRequest, "FAILED")
+		return
+	}
+
+	if err := a.I.OperateModel(model, params.ModelPath); err != nil {
+		Error(c, http.StatusInternalServerError, err)
+	} else {
+		c.String(http.StatusOK, "OK")
 	}
 }
 

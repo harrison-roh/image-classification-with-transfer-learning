@@ -48,6 +48,7 @@ func main() {
 		modelsGroup.GET("", a.ListModels)
 		modelsGroup.GET(":model", a.ShowModel)
 		modelsGroup.POST(":model", a.CreateModel)
+		modelsGroup.PUT(":model", a.OperateModel)
 		modelsGroup.DELETE(":model", a.DeleteModel)
 	}
 

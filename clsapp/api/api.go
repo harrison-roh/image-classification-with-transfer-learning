@@ -121,8 +121,8 @@ func (a *APIs) OperateModel(c *gin.Context) {
 
 	var params inference.CreateResponse
 	if err := c.ShouldBindJSON(&params); err != nil {
-		log.Printf("Invalid paramaters: %s", err.Error())
-		c.String(http.StatusBadRequest, "FAILED")
+		log.Print(err)
+		Error(c, http.StatusBadRequest, err)
 		return
 	}
 

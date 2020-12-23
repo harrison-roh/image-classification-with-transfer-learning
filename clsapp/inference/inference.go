@@ -14,6 +14,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/harrison-roh/image-classification-with-transfer-learning/clsapp/constants"
@@ -120,16 +121,30 @@ func (i *Inference) init() error {
 }
 
 func (i *Inference) addModel(newM *iModel) error {
+	var err error
+
 	if newM.name == "" {
 		return errors.New("Empty model name")
 	}
 
 	for model, m := range i.models {
 		if model == newM.name || m.name == newM.name {
-			return fmt.Errorf("Duplicated model: %s", newM.name)
+			err = errors.New("Duplicated model")
 		} else if m.modelPath == newM.modelPath {
-			return fmt.Errorf("Duplicated model path: %s", newM.modelPath)
+			err = errors.New("Duplicated model path")
 		}
+
+		if atomic.LoadInt32(&m.status) != modelStatusRun {
+			since := int(time.Since(m.statusUpdateTime).Seconds())
+			if since > 60*60*24 {
+				log.Printf("The status of the %s model has not changed for too long", m.name)
+				i.delModelUncond(m)
+			}
+		}
+	}
+
+	if err != nil {
+		return err
 	}
 
 	i.models[newM.name] = newM
@@ -249,6 +264,7 @@ func (i *Inference) CreateModel(newModel, subject, desc string, epochs int, tria
 	}
 
 	atomic.StoreInt32(&m.status, modelStatusBuild)
+	m.statusUpdateTime = time.Now()
 
 	return response, nil
 }
@@ -414,11 +430,12 @@ const (
 
 // Model 이미지 추론 모델
 type iModel struct {
-	name      string
-	modelPath string
-	cfg       modelConfig
-	status    int32
-	refCount  int32
+	name             string
+	modelPath        string
+	cfg              modelConfig
+	status           int32
+	statusUpdateTime time.Time
+	refCount         int32
 
 	tfModel    *tf.SavedModel
 	inputShape []int32
@@ -638,9 +655,10 @@ func (m *iModel) destroy() {
 
 func getNewModel(model, modelPath string) *iModel {
 	return &iModel{
-		name:      model,
-		modelPath: modelPath,
-		status:    modelStatusReady,
+		name:             model,
+		modelPath:        modelPath,
+		status:           modelStatusReady,
+		statusUpdateTime: time.Now(),
 	}
 }
 
@@ -697,6 +715,7 @@ func loadModel(m *iModel) error {
 	m.labels = labels
 	// Setting status should always be last
 	atomic.StoreInt32(&m.status, modelStatusRun)
+	m.statusUpdateTime = time.Now()
 
 	return nil
 }

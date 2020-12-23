@@ -224,7 +224,7 @@ def create_base_model(model_name, params):
         f"http://{CLSAPP}/models/{model_name}", json={"modelPath": model_path}
     )
     print(
-        f"Operate {model_name}, {MODEL_TYPE_BASE}, {model_path}: {response.status_code}"
+        f"Operate {model_name}, {MODEL_TYPE_BASE}, {model_path}: ({response.status_code}) {response.text}"
     )
 
 
@@ -285,7 +285,7 @@ def create_transfer_learned_model(model_name, params):
         f"http://{CLSAPP}/models/{model_name}", json={"modelPath": model_path}
     )
     print(
-        f"Operate {model_name}, {MODEL_TYPE_BASE}, {model_path}: {response.status_code}"
+        f"Operate {model_name}, {MODEL_TYPE_BASE}, {model_path}: ({response.status_code}) {response.text}"
     )
 
 

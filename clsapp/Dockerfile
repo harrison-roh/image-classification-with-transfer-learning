@@ -83,6 +83,12 @@ RUN curl -L \
     tar -C "/usr/local" -xz
 RUN ldconfig
 
+# Install Dockerize
+ENV DOCKERIZE_VERSION v0.6.1
+RUN curl -L \
+    "https://github.com/jwilder/dockerize/releases/download/${DOCKERIZE_VERSION}/dockerize-linux-amd64-${DOCKERIZE_VERSION}.tar.gz" | \
+    tar -C "/usr/local/bin" -xz
+
 RUN [ -d "${APP_DIR}" ] || mkdir -p ${APP_DIR}
 RUN [ -d "${IMAGEDATA_DIR}" ] || mkdir -p ${IMAGEDATA_DIR}
 RUN [ -d "${MODELDATA_DIR}" ] || mkdir -p ${MODELDATA_DIR}
@@ -96,5 +102,3 @@ RUN chown -R ${USERNAME} ${MODELDATA_DIR}
 WORKDIR ${APP_DIR}
 
 USER ${USERNAME}
-
-RUN git clone https://github.com/eficode/wait-for.git

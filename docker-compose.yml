@@ -6,8 +6,19 @@ services:
             dockerfile: ./Dockerfile
         user: "serv"
         working_dir: /app
-        command: ["./wait-for/wait-for", "learnapp:18090", "--", "./clsapp"]
+        command:
+            [
+                "dockerize",
+                "-wait",
+                "tcp://learnapp:18090",
+                "-wait",
+                "tcp://db:3306",
+                "-timeout",
+                "30s",
+                "./clsapp",
+            ]
         depends_on:
+            - learnapp
             - db
         volumes:
             - imagedata:/cls/images
@@ -15,7 +26,7 @@ services:
         ports:
             - "18080:18080"
         networks:
-            - cls-net
+            - net
     learnapp:
         build:
             context: ./learnapp
@@ -28,7 +39,7 @@ services:
         ports:
             - "18090:18090"
         networks:
-            - cls-net
+            - net
     db:
         image: mysql
         command:
@@ -45,7 +56,7 @@ services:
         ports:
             - "18100:3306"
         networks:
-            - cls-net
+            - net
 
 volumes:
     dbdata:
@@ -53,5 +64,5 @@ volumes:
     modeldata:
 
 networks:
-    cls-net:
+    net:
         driver: bridge

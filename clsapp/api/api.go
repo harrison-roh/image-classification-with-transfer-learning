@@ -76,8 +76,14 @@ func (a *APIs) infer(c *gin.Context, model string) {
 
 	format := strings.Split(header.Filename, ".")[1]
 
+	k := c.Query("k")
+	topK, err := strconv.Atoi(k)
+	if err != nil {
+		topK = constants.DefaultMultiClassMax
+	}
+
 	t0 := time.Now()
-	if infers, err := a.I.Infer(model, image.String(), format, 5); err == nil {
+	if infers, err := a.I.Infer(model, image.String(), format, topK); err == nil {
 		elapsed := time.Since(t0)
 		c.JSON(http.StatusOK, gin.H{
 			"file":        header.Filename,

@@ -92,7 +92,7 @@ curl -XDELETE http://127.0.0.1:18080/models/mymodel
 - subject (querystring)
   - 전이학습 이미지 그룹
 - category (querystring)
-  - 이미지 카테고리 그룹
+  - 이미지 카테고리
 
 ```sh
 curl -XGET http://127.0.0.1:18080/images?subject=flowers&category=roses
@@ -105,7 +105,7 @@ curl -XGET http://127.0.0.1:18080/images?subject=flowers&category=roses
 - subject (querystring)
   - 전이학습 이미지 그룹
 - category (querystring)
-  - 이미지 카테고리 그룹
+  - 이미지 카테고리
 - images (multipart form)
   - 이미지 파일
 
@@ -122,7 +122,7 @@ curl -XPOST http://127.0.0.1:18080/images?subject=flowers&category=roses \
 - subject (querystring)
   - 전이학습 이미지 그룹
 - category (querystring)
-  - 이미지 카테고리 그룹
+  - 이미지 카테고리
 
 ```sh
 curl -XDELETE http://127.0.0.1:18080/images?subject=flowers&category=roses
@@ -132,10 +132,12 @@ curl -XDELETE http://127.0.0.1:18080/images?subject=flowers&category=roses
 
 `POST /inference/:model`
 
+- k (querystring)
+  - 다중 카테고리 분류 모델에서 상위 카테고리 수
 - image (multipart form)
   - 이미지 파일
 
 ```sh
-curl -XPOST localhost:18080/inference/mymodel \
+curl -XPOST localhost:18080/inference/mymodel?k=10 \
     -F 'image=@roses.jpg'
 ```

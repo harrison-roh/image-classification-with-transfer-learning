@@ -2,10 +2,7 @@
 FROM tensorflow/tensorflow AS builder
 
 ARG USERNAME=serv
-# For Linux local machine
-#ARG USER_UID=1000
-# For MacOS local machine
-ARG USER_UID=501
+ARG USER_UID
 ARG USER_GID=${USER_UID}
 
 ARG APP_DIR=/app

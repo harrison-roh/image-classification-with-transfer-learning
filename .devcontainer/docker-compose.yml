@@ -4,6 +4,8 @@ services:
         build:
             context: ../clsapp
             dockerfile: dev.Dockerfile
+            args:
+                USER_UID: ${USER_UID}
         user: "dev"
         working_dir: /workspace
         command: /bin/sh -c "while sleep 1000; do :; done"
@@ -22,6 +24,8 @@ services:
         build:
             context: ../learnapp
             dockerfile: dev.Dockerfile
+            args:
+                USER_UID: ${USER_UID}
         working_dir: /workspace
         user: "dev"
         command: /bin/sh -c "while sleep 1000; do :; done"

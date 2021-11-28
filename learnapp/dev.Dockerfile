@@ -1,10 +1,7 @@
 FROM tensorflow/tensorflow
 
 ARG USERNAME=dev
-# For Linux local machine
-#ARG USER_UID=1000
-# For MacOS local machine
-ARG USER_UID=501
+ARG USER_UID
 ARG USER_GID=${USER_UID}
 
 ARG OPT_DIR=/cls/opt
